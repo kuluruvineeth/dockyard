@@ -14,6 +14,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PingResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: &id001
+                $ref: '#/components/schemas/ErrorResponse'
   /api/auth/login:
     post:
       summary: Login View
@@ -44,8 +50,12 @@ paths:
           description: Validation Error
           content:
             application/json:
-              schema: &id001
-                $ref: '#/components/schemas/ErrorResponse'
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/auth/logout:
     delete:
       summary: Logout View
@@ -53,6 +63,11 @@ paths:
       responses:
         '204':
           description: Successful Response
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/auth/me:
     get:
       summary: Me View
@@ -64,6 +79,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthedResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/csrf:
     get:
       summary: Csrf View
@@ -75,6 +95,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CSRFResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/auth/check-user-existence:
     get:
       summary: Check User Existence
@@ -86,6 +111,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserExistenceResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/auth/create-initial-user:
     post:
       summary: Create Initial User
@@ -105,6 +135,11 @@ paths:
                 $ref: '#/components/schemas/UserCreatedResponse'
         '422':
           description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
           content:
             application/json:
               schema: *id001
@@ -130,6 +165,11 @@ paths:
           content:
             application/json:
               schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/auth/update-profile:
     patch:
       summary: Update Profile
@@ -152,6 +192,11 @@ paths:
           content:
             application/json:
               schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/settings:
     get:
       summary: Get Api Settings
@@ -163,6 +208,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SettingsResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/server/resource-limits:
     get:
       summary: Get Server Resource Limits View
@@ -174,6 +224,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResourceLimitResponse'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
 components:
   schemas:
     AuthedResponse:

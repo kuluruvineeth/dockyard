@@ -205,6 +205,12 @@ export interface operations {
           "application/json": components["schemas"]["PingResponse"];
         };
       };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
     };
   };
   /** Login View */
@@ -232,6 +238,12 @@ export interface operations {
           "application/json": components["schemas"]["ErrorResponse"];
         };
       };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
     };
   };
   /** Logout View */
@@ -240,6 +252,12 @@ export interface operations {
       /** @description Successful Response */
       204: {
         content: never;
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
       };
     };
   };
@@ -250,6 +268,12 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["AuthedResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };
@@ -263,6 +287,12 @@ export interface operations {
           "application/json": components["schemas"]["CSRFResponse"];
         };
       };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
     };
   };
   /** Check User Existence */
@@ -272,6 +302,12 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["UserExistenceResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };
@@ -292,6 +328,12 @@ export interface operations {
       };
       /** @description Validation Error */
       422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
         content: {
           "application/json": components["schemas"]["ErrorResponse"];
         };
@@ -318,6 +360,12 @@ export interface operations {
           "application/json": components["schemas"]["ErrorResponse"];
         };
       };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
     };
   };
   /** Update Profile */
@@ -340,6 +388,12 @@ export interface operations {
           "application/json": components["schemas"]["ErrorResponse"];
         };
       };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
     };
   };
   /** Get Api Settings */
@@ -351,6 +405,12 @@ export interface operations {
           "application/json": components["schemas"]["SettingsResponse"];
         };
       };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
     };
   };
   /** Get Server Resource Limits View */
@@ -360,6 +420,12 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["ResourceLimitResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };

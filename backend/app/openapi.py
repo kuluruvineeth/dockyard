@@ -73,9 +73,14 @@ def build_schema() -> dict:
         for operation in path_item.values():
             if not isinstance(operation, dict):
                 continue
-            for status_code, response in operation.get("responses", {}).items():
+            responses = operation.setdefault("responses", {})
+            for status_code, response in responses.items():
                 if str(status_code)[0] in ("4", "5"):
                     response["content"] = {"application/json": dict(error_ref)}
+            responses["default"] = {
+                "description": "Error",
+                "content": {"application/json": dict(error_ref)},
+            }
 
     return schema
 
