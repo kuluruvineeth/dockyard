@@ -4,10 +4,12 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import db as db_module
+from app import docker_helpers as docker_helpers_module
 from app import session as session_module
 from app import throttling as throttling_module
 from app.main import app
 from app.models import Base, User
+from tests.fakes import FakeDockerClient
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./dockyard_test.sqlite3"
 
@@ -19,6 +21,13 @@ def _clear_sessions():
     yield
     session_module.MemorySessionStore._store.clear()
     throttling_module._history.clear()
+
+
+@pytest.fixture(autouse=True)
+def fake_docker(monkeypatch):
+    fake = FakeDockerClient()
+    monkeypatch.setattr(docker_helpers_module, "get_docker_client", lambda: fake)
+    return fake
 
 
 @pytest_asyncio.fixture

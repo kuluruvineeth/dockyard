@@ -15,6 +15,7 @@ dependencies = [
     "pydantic-settings>=2.7",
     "itsdangerous>=2.2",
     "bcrypt>=5.0.0",
+    "docker>=7.1.0",
 ]
 
 [dependency-groups]
