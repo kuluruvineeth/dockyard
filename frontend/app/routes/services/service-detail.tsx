@@ -67,6 +67,11 @@ export async function clientAction({
         key: formData.get("key")?.toString(),
         value: formData.get("value")?.toString() ?? ""
       };
+    } else if (changeField === "source") {
+      newValue = { image: formData.get("image")?.toString() };
+    } else if (changeField === "command") {
+      const command = formData.get("command")?.toString()?.trim();
+      newValue = command ? command : null;
     } else {
       const urlValue: Record<string, unknown> = {
         domain: formData.get("domain")?.toString(),
@@ -184,7 +189,7 @@ function ServiceDetailSkeleton() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="order-last flex flex-col gap-6 lg:order-first">
-          {Array.from({ length: 3 }).map((_, i) => (
+          {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="border border-border bg-card">
               <div className="flex flex-col gap-2 border-b border-border/60 px-5 py-4">
                 <div className="h-4 w-36 bg-muted" />
@@ -233,6 +238,11 @@ export default function ServiceDetail({
     sourceChange?.new_value as { image?: string } | undefined
   )?.image;
   const sourceImage = service?.image ?? stagedImage ?? "";
+  const changeErrors = getFormErrorsFromResponseData(
+    actionData && "changeError" in actionData
+      ? actionData.changeError
+      : undefined
+  );
 
   const deployment =
     actionData && "deployment" in actionData ? actionData.deployment : null;
@@ -291,12 +301,63 @@ export default function ServiceDetail({
             description="The image this service runs and its internal network alias."
           >
             <div className="divide-y divide-border/60">
-              <InfoRow label="Image" value={sourceImage || "—"} />
               <InfoRow
                 label="Network alias"
                 value={service?.network_alias ?? "—"}
               />
             </div>
+            <Form method="POST" className={SECTION_FOOTER}>
+              <input type="hidden" name="change_field" value="source" />
+              <input type="hidden" name="change_type" value="UPDATE" />
+              {changeErrors.new_value && (
+                <p className="text-sm text-destructive">
+                  {changeErrors.new_value.join(" ")}
+                </p>
+              )}
+              <FieldSet required className="flex flex-col gap-1.5">
+                <FieldSetLabel>Image</FieldSetLabel>
+                <FieldSetInput
+                  name="image"
+                  className="font-mono"
+                  placeholder="ex: redis:alpine"
+                  defaultValue={sourceImage}
+                  required
+                />
+              </FieldSet>
+              <SubmitButton
+                isPending={isPending}
+                variant="outline"
+                className="w-fit"
+              >
+                {isPending ? "Saving…" : "Update image"}
+              </SubmitButton>
+            </Form>
+          </SectionCard>
+
+          <SectionCard
+            title="Startup command"
+            description="Overrides the default command run inside the container."
+          >
+            <Form method="POST" className="flex flex-col gap-4 px-5 py-5">
+              <input type="hidden" name="change_field" value="command" />
+              <input type="hidden" name="change_type" value="UPDATE" />
+              <FieldSet className="flex flex-col gap-1.5">
+                <FieldSetLabel>Custom command (optional)</FieldSetLabel>
+                <FieldSetInput
+                  name="command"
+                  className="font-mono"
+                  placeholder="ex: npm run start"
+                  defaultValue={service?.command ?? ""}
+                />
+              </FieldSet>
+              <SubmitButton
+                isPending={isPending}
+                variant="outline"
+                className="w-fit"
+              >
+                {isPending ? "Saving…" : "Update command"}
+              </SubmitButton>
+            </Form>
           </SectionCard>
 
           <SectionCard
