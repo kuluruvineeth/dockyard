@@ -20,6 +20,7 @@ from app.models import (
 from app.models.base import generate_id
 from app.schemas.services import (
     DockerServiceCreateRequest,
+    ServiceCardSchema,
     ServiceChangeRequest,
     ServiceSchema,
     ServiceUpdateRequest,
@@ -139,6 +140,32 @@ async def get_service_or_404(
             f"A service with the slug `{slug}` does not exist in this environment."
         )
     return service
+
+
+@router.get(
+    "/api/projects/{project_slug}/{env_slug}/service-list/",
+    response_model=list[ServiceCardSchema],
+)
+async def service_list(
+    project_slug: str,
+    env_slug: str,
+    user: CurrentUser,
+    db: DBSession,
+    query: str | None = None,
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+
+    statement = select(Service).where(
+        Service.project_id == project.id,
+        Service.environment_id == environment.id,
+    )
+    if query:
+        statement = statement.where(Service.slug.icontains(query))
+    statement = statement.order_by(Service.updated_at.desc())
+
+    services = (await db.execute(statement)).scalars().all()
+    return [ServiceCardSchema.from_service(service) for service in services]
 
 
 @router.get(

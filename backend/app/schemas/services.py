@@ -192,3 +192,44 @@ class ServiceChangeRequest(BaseModel):
     type: str
     item_id: str | None = None
     new_value: Any = None
+
+
+class ServiceCardSchema(BaseModel):
+    id: str
+    slug: str
+    type: str
+    status: str
+    image: str | None
+    tag: str | None
+    url: str | None
+    volume_number: int
+    updated_at: datetime
+
+    @classmethod
+    def from_service(cls, service: Service) -> "ServiceCardSchema":
+        image = service.image
+        if image is None:
+            source = next(
+                (c for c in service.changes if c.field == "source" and not c.applied),
+                None,
+            )
+            if source and isinstance(source.new_value, dict):
+                image = source.new_value.get("image")
+
+        name, tag = (None, None)
+        if image:
+            parts = image.split(":", 1)
+            name = parts[0]
+            tag = parts[1] if len(parts) > 1 else "latest"
+
+        return cls(
+            id=service.id,
+            slug=service.slug,
+            type="docker" if service.type == "DOCKER_REGISTRY" else "git",
+            status="NOT_DEPLOYED_YET",
+            image=name,
+            tag=tag,
+            url=service.urls[0].domain if service.urls else None,
+            volume_number=len(service.volumes),
+            updated_at=service.updated_at,
+        )

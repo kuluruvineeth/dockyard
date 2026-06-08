@@ -309,3 +309,32 @@ class TestCancelServiceChanges:
         await _make_service(auth_client, p, "svc")
         response = await auth_client.delete(_cancel_url(p, "svc", "chg_dkr_nope"))
         assert response.status_code == 404
+
+
+class TestServiceList:
+    async def test_list_services(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc-a")
+        await _make_service(auth_client, p, "svc-b")
+        response = await auth_client.get(f"/api/projects/{p}/production/service-list/")
+        assert response.status_code == 200
+        assert len(response.json()) == 2
+
+    async def test_list_filter(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "cache-db")
+        await _make_service(auth_client, p, "web-app")
+        response = await auth_client.get(
+            f"/api/projects/{p}/production/service-list/", params={"query": "cache"}
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+    async def test_card_image_from_source_change(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc", image="redis:alpine")
+        response = await auth_client.get(f"/api/projects/{p}/production/service-list/")
+        card = response.json()[0]
+        assert card["image"] == "redis"
+        assert card["tag"] == "alpine"
+        assert card["status"] == "NOT_DEPLOYED_YET"
