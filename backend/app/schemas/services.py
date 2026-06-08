@@ -1,0 +1,183 @@
+from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+from app.models import (
+    URL,
+    Config,
+    DeploymentChange,
+    EnvVariable,
+    HealthCheck,
+    PortConfiguration,
+    Service,
+    Volume,
+)
+
+
+class URLSchema(BaseModel):
+    id: str
+    domain: str
+    base_path: str
+    strip_prefix: bool
+    redirect_to: dict | None
+    associated_port: int | None
+
+
+class PortSchema(BaseModel):
+    id: str
+    host: int
+    forwarded: int
+
+
+class VolumeSchema(BaseModel):
+    id: str
+    name: str
+    mode: str
+    container_path: str
+    host_path: str | None
+
+
+class EnvVariableSchema(BaseModel):
+    id: str
+    key: str
+    value: str
+
+
+class ConfigSchema(BaseModel):
+    id: str
+    name: str
+    mount_path: str
+    contents: str
+    language: str
+    version: int
+
+
+class HealthCheckSchema(BaseModel):
+    id: str
+    type: str
+    value: str
+    interval_seconds: int
+    timeout_seconds: int
+    associated_port: int | None
+
+
+class ChangeSchema(BaseModel):
+    id: str
+    type: str
+    field: str
+    item_id: str | None
+    old_value: Any | None
+    new_value: Any | None
+    applied: bool
+
+    @classmethod
+    def from_change(cls, change: DeploymentChange) -> "ChangeSchema":
+        return cls(
+            id=change.id,
+            type=change.type,
+            field=change.field,
+            item_id=change.item_id,
+            old_value=change.old_value,
+            new_value=change.new_value,
+            applied=change.applied,
+        )
+
+
+class ServiceSchema(BaseModel):
+    id: str
+    slug: str
+    type: str
+    image: str | None
+    command: str | None
+    network_alias: str | None
+    created_at: datetime
+    updated_at: datetime
+    urls: list[URLSchema]
+    ports: list[PortSchema]
+    volumes: list[VolumeSchema]
+    env_variables: list[EnvVariableSchema]
+    configs: list[ConfigSchema]
+    healthcheck: HealthCheckSchema | None
+    unapplied_changes: list[ChangeSchema]
+
+    @classmethod
+    def from_service(cls, service: Service) -> "ServiceSchema":
+        return cls(
+            id=service.id,
+            slug=service.slug,
+            type=service.type,
+            image=service.image,
+            command=service.command,
+            network_alias=service.network_alias,
+            created_at=service.created_at,
+            updated_at=service.updated_at,
+            urls=[_url(u) for u in service.urls],
+            ports=[_port(p) for p in service.ports],
+            volumes=[_volume(v) for v in service.volumes],
+            env_variables=[_env(e) for e in service.env_variables],
+            configs=[_config(c) for c in service.configs],
+            healthcheck=(
+                _healthcheck(service.healthcheck) if service.healthcheck else None
+            ),
+            unapplied_changes=[
+                ChangeSchema.from_change(c) for c in service.unapplied_changes
+            ],
+        )
+
+
+def _url(u: URL) -> URLSchema:
+    return URLSchema(
+        id=u.id,
+        domain=u.domain,
+        base_path=u.base_path,
+        strip_prefix=u.strip_prefix,
+        redirect_to=u.redirect_to,
+        associated_port=u.associated_port,
+    )
+
+
+def _port(p: PortConfiguration) -> PortSchema:
+    return PortSchema(id=p.id, host=p.host, forwarded=p.forwarded)
+
+
+def _volume(v: Volume) -> VolumeSchema:
+    return VolumeSchema(
+        id=v.id,
+        name=v.name,
+        mode=v.mode,
+        container_path=v.container_path,
+        host_path=v.host_path,
+    )
+
+
+def _env(e: EnvVariable) -> EnvVariableSchema:
+    return EnvVariableSchema(id=e.id, key=e.key, value=e.value)
+
+
+def _config(c: Config) -> ConfigSchema:
+    return ConfigSchema(
+        id=c.id,
+        name=c.name,
+        mount_path=c.mount_path,
+        contents=c.contents,
+        language=c.language,
+        version=c.version,
+    )
+
+
+def _healthcheck(h: HealthCheck) -> HealthCheckSchema:
+    return HealthCheckSchema(
+        id=h.id,
+        type=h.type,
+        value=h.value,
+        interval_seconds=h.interval_seconds,
+        timeout_seconds=h.timeout_seconds,
+        associated_port=h.associated_port,
+    )
+
+
+class DockerServiceCreateRequest(BaseModel):
+    slug: str | None = Field(default=None, max_length=255, pattern=r"^[-a-zA-Z0-9_]+$")
+    image: str = Field(min_length=1)
+    container_registry_credentials_id: str | None = None

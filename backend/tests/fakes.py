@@ -1,3 +1,8 @@
+import docker.errors
+
+NONEXISTANT_IMAGE = "nonexistent/donotexist:latest"
+
+
 class FakeContainers:
     def run(self, image, command, remove=False, **kwargs):
         return b"4\n8589934592"
@@ -9,6 +14,11 @@ class FakeImages:
             {"name": "caddy", "description": "Caddy web server"},
             {"name": "siwecos/caddy", "description": "Caddy with security headers"},
         ]
+
+    def get_registry_data(self, image, auth_config=None):
+        if image == NONEXISTANT_IMAGE:
+            raise docker.errors.ImageNotFound("This image does not exist")
+        return {"name": image}
 
 
 class FakeNetwork:
@@ -54,6 +64,8 @@ class FakeNetworks:
 
 
 class FakeDockerClient:
+    NONEXISTANT_IMAGE = NONEXISTANT_IMAGE
+
     def __init__(self):
         self.containers = FakeContainers()
         self.images = FakeImages()

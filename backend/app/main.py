@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from app.errors import register_error_handlers
 from app.middleware.csrf import CSRFMiddleware
 from app.middleware.session import SessionMiddleware
-from app.routers import auth, docker, ping, projects
+from app.routers import auth, docker, docker_services, ping, projects
 from app.routers import settings as settings_router
 
 
@@ -22,6 +22,7 @@ def create_app() -> FastAPI:
     app.include_router(settings_router.router)
     app.include_router(projects.router)
     app.include_router(docker.router)
+    app.include_router(docker_services.router)
     return app
 
 

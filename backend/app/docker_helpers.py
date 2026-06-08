@@ -54,6 +54,15 @@ def search_images_docker_hub(term: str) -> list[dict]:
     ]
 
 
+def check_if_docker_image_exists(image: str, credentials: dict | None = None) -> bool:
+    client = get_docker_client()
+    try:
+        client.images.get_registry_data(image, auth_config=credentials)
+    except APIError:
+        return False
+    return True
+
+
 def get_server_resource_limits() -> tuple[int, int]:
     client = get_docker_client()
     result: bytes = client.containers.run(
