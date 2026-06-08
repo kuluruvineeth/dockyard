@@ -5,9 +5,13 @@ from sqlalchemy.exc import IntegrityError
 
 from app.constants import PRODUCTION_ENV_NAME
 from app.dependencies import CurrentUser, DBSession
-from app.errors import ResourceConflict
+from app.errors import NotFound, ResourceConflict
 from app.models import Environment, Project
-from app.schemas.projects import ProjectCreateRequest, ProjectSchema
+from app.schemas.projects import (
+    ProjectCreateRequest,
+    ProjectSchema,
+    ProjectUpdateRequest,
+)
 
 router = APIRouter()
 fake = Faker()
@@ -49,6 +53,45 @@ async def create_project(body: ProjectCreateRequest, user: CurrentUser, db: DBSe
     except IntegrityError:
         await db.rollback()
         raise ResourceConflict(f"A project with the slug `{slug}` already exists.")
+
+    result = await db.execute(select(Project).where(Project.id == project.id))
+    return ProjectSchema.from_project(result.scalar_one())
+
+
+async def _get_project_or_404(db, user, slug: str) -> Project:
+    result = await db.execute(
+        select(Project).where(Project.slug == slug, accessible_projects_filter(user))
+    )
+    project = result.scalar_one_or_none()
+    if project is None:
+        raise NotFound(f"A project with the slug `{slug}` does not exist.")
+    return project
+
+
+@router.get("/api/projects/{slug}/", response_model=ProjectSchema)
+async def get_project(slug: str, user: CurrentUser, db: DBSession):
+    project = await _get_project_or_404(db, user, slug)
+    return ProjectSchema.from_project(project)
+
+
+@router.put("/api/projects/{slug}/", response_model=ProjectSchema)
+async def update_project(
+    slug: str, body: ProjectUpdateRequest, user: CurrentUser, db: DBSession
+):
+    project = await _get_project_or_404(db, user, slug)
+
+    if body.slug is not None:
+        project.slug = body.slug.lower()
+    if body.description is not None:
+        project.description = body.description
+
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise ResourceConflict(
+            f"The slug `{body.slug}` is already used by another project."
+        )
 
     result = await db.execute(select(Project).where(Project.id == project.id))
     return ProjectSchema.from_project(result.scalar_one())

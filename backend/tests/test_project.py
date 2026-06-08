@@ -71,3 +71,69 @@ class TestProjectCreateView:
         envs = response.json()["environments"]
         assert len(envs) == 1
         assert envs[0]["name"] == "production"
+
+
+class TestProjectUpdateView:
+    async def test_successfully_update_slug(self, auth_client, user, session):
+        await _make_project(session, user, "gh-next")
+        response = await auth_client.put(
+            "/api/projects/gh-next/", json={"slug": "kisshub"}
+        )
+        assert response.status_code == 200
+        assert response.json()["slug"] == "kisshub"
+
+    async def test_successfully_update_description(self, auth_client, user, session):
+        await _make_project(session, user, "gh-next")
+        response = await auth_client.put(
+            "/api/projects/gh-next/",
+            json={"description": "Clone of Github built-on nextjs app router"},
+        )
+        assert response.status_code == 200
+        assert (
+            response.json()["description"]
+            == "Clone of Github built-on nextjs app router"
+        )
+
+    async def test_prevent_empty_update(self, auth_client, user, session):
+        await _make_project(session, user, "gh-next")
+        response = await auth_client.put("/api/projects/gh-next/", json={})
+        assert response.status_code == 400
+
+    async def test_bad_request(self, auth_client, user, session):
+        await _make_project(session, user, "dky-ops")
+        response = await auth_client.put(
+            "/api/projects/dky-ops/", json={"slug": "Dky Ops"}
+        )
+        assert response.status_code == 400
+
+    async def test_non_existent(self, auth_client):
+        response = await auth_client.put(
+            "/api/projects/dky-ops/", json={"slug": "zenops"}
+        )
+        assert response.status_code == 404
+
+    async def test_already_existing_slug(self, auth_client, user, session):
+        await _make_project(session, user, "gh-clone")
+        await _make_project(session, user, "dky-ops")
+        response = await auth_client.put(
+            "/api/projects/dky-ops/", json={"slug": "gh-clone"}
+        )
+        assert response.status_code == 409
+
+    async def test_can_rename_to_self(self, auth_client, user, session):
+        await _make_project(session, user, "dky-ops")
+        response = await auth_client.put(
+            "/api/projects/dky-ops/", json={"slug": "dky-ops"}
+        )
+        assert response.status_code == 200
+
+
+class TestProjectGetView:
+    async def test_successfully_get_project(self, auth_client, user, session):
+        await _make_project(session, user, "gh-clone")
+        response = await auth_client.get("/api/projects/gh-clone/")
+        assert response.status_code == 200
+
+    async def test_non_existent(self, auth_client):
+        response = await auth_client.get("/api/projects/dky-ops/")
+        assert response.status_code == 404

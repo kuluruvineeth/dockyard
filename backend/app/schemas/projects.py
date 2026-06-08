@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.models import Environment, Project
 
@@ -51,3 +51,14 @@ class ProjectSchema(BaseModel):
 class ProjectCreateRequest(BaseModel):
     slug: str | None = Field(default=None, max_length=255, pattern=r"^[-a-zA-Z0-9_]+$")
     description: str | None = None
+
+
+class ProjectUpdateRequest(BaseModel):
+    slug: str | None = Field(default=None, max_length=255, pattern=r"^[-a-zA-Z0-9_]+$")
+    description: str | None = None
+
+    @model_validator(mode="after")
+    def at_least_one_field(self) -> "ProjectUpdateRequest":
+        if self.slug is None and self.description is None:
+            raise ValueError("one of `slug` or `description` should be provided")
+        return self
