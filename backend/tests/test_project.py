@@ -27,6 +27,30 @@ class TestProjectListView:
         response = await client.get("/api/projects/")
         assert response.status_code == 401
 
+    async def test_service_health_counts(self, auth_client, fake_docker):
+        await auth_client.post("/api/projects/", json={"slug": "demo"})
+        await auth_client.post(
+            "/api/projects/demo/production/create-service/docker/",
+            json={"slug": "app", "image": "caddy:2.8-alpine"},
+        )
+        await auth_client.post(
+            "/api/projects/demo/production/create-service/docker/",
+            json={"slug": "cache", "image": "redis:alpine"},
+        )
+        await auth_client.put(
+            "/api/projects/demo/production/deploy-service/docker/app/"
+        )
+
+        response = await auth_client.get("/api/projects/")
+        assert response.status_code == 200
+        project = next(p for p in response.json() if p["slug"] == "demo")
+        assert project["total_services"] == 2
+        assert project["healthy_services"] == 1
+
+        detail = await auth_client.get("/api/projects/demo/")
+        assert detail.json()["total_services"] == 2
+        assert detail.json()["healthy_services"] == 1
+
 
 class TestProjectCreateView:
     async def test_successfully_create_project(self, auth_client):

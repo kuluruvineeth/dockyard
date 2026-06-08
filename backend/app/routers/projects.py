@@ -1,12 +1,12 @@
 from faker import Faker
 from fastapi import APIRouter
-from sqlalchemy import select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.constants import PRODUCTION_ENV_NAME
 from app.dependencies import CurrentUser, DBSession
 from app.errors import NotFound, ResourceConflict
-from app.models import Environment, Project
+from app.models import Deployment, DeploymentStatus, Environment, Project, Service
 from app.schemas.projects import (
     ProjectCreateRequest,
     ProjectSchema,
@@ -20,6 +20,40 @@ fake = Faker()
 
 def accessible_projects_filter(user):
     return Project.owner_id == user.id
+
+
+async def _service_counts(db, project_ids):
+    if not project_ids:
+        return {}
+
+    is_healthy = Deployment.status == DeploymentStatus.HEALTHY.value
+
+    query = (
+        select(
+            Service.project_id,
+            func.count(Service.id),
+            func.sum(case((is_healthy, 1), else_=0)),
+        )
+        .select_from(Service)
+        .outerjoin(
+            Deployment,
+            and_(
+                Deployment.service_id == Service.id,
+                Deployment.is_current_production.is_(True),
+            ),
+        )
+        .where(Service.project_id.in_(project_ids))
+        .group_by(Service.project_id)
+    )
+
+    result = await db.execute(query)
+    return {
+        row[0]: {
+            "total_services": row[1] or 0,
+            "healthy_services": row[2] or 0,
+        }
+        for row in result.all()
+    }
 
 
 @router.get("/api/projects/", response_model=list[ProjectSchema])
@@ -39,7 +73,11 @@ async def list_projects(
 
     result = await db.execute(query)
     projects = result.scalars().all()
-    return [ProjectSchema.from_project(project) for project in projects]
+    counts = await _service_counts(db, [project.id for project in projects])
+    return [
+        ProjectSchema.from_project(project, **counts.get(project.id, {}))
+        for project in projects
+    ]
 
 
 @router.post("/api/projects/", status_code=201, response_model=ProjectSchema)
@@ -75,7 +113,8 @@ async def _get_project_or_404(db, user, slug: str) -> Project:
 @router.get("/api/projects/{slug}/", response_model=ProjectSchema)
 async def get_project(slug: str, user: CurrentUser, db: DBSession):
     project = await _get_project_or_404(db, user, slug)
-    return ProjectSchema.from_project(project)
+    counts = await _service_counts(db, [project.id])
+    return ProjectSchema.from_project(project, **counts.get(project.id, {}))
 
 
 @router.put("/api/projects/{slug}/", response_model=ProjectSchema)

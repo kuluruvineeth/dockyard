@@ -338,3 +338,97 @@ class TestServiceList:
         assert card["image"] == "redis"
         assert card["tag"] == "alpine"
         assert card["status"] == "NOT_DEPLOYED_YET"
+
+
+def _deploy_url(project_slug, slug, env_slug="production"):
+    return f"/api/projects/{project_slug}/{env_slug}/deploy-service/docker/{slug}/"
+
+
+class TestDeployDockerService:
+    async def test_deploy_simple_service(self, auth_client, fake_docker):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="caddy:2.8-alpine")
+        response = await auth_client.put(_deploy_url(p, "app"))
+        assert response.status_code == 200
+        data = response.json()
+
+        deployment_hash = data["id"].rsplit("_", 1)[-1]
+        services = fake_docker.services.list()
+        assert len(services) == 1
+        assert services[0].name.startswith("srv-")
+        assert services[0].name.endswith(deployment_hash)
+        assert services[0].image == "caddy:2.8-alpine"
+
+        assert data["status"] == "HEALTHY"
+        assert data["is_current_production"] is True
+        assert data["slot"] == "BLUE"
+
+    async def test_deploy_service_with_env(self, auth_client, fake_docker):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="caddy:2.8-alpine")
+        await auth_client.put(
+            _changes_url(p, "app"),
+            json={
+                "field": "env_variables",
+                "type": "ADD",
+                "new_value": {"key": "REDIS_PASSWORD", "value": "secret"},
+            },
+        )
+        await auth_client.put(_deploy_url(p, "app"))
+        swarm_service = fake_docker.services.list()[0]
+        assert "REDIS_PASSWORD=secret" in swarm_service.env
+        assert "DOCKYARD_DEPLOYMENT_TYPE=docker" in swarm_service.env
+
+    async def test_deploy_applies_source_change(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc", image="redis:alpine")
+        await auth_client.put(_deploy_url(p, "svc"))
+        response = await auth_client.get(_details_url(p, "svc"))
+        assert response.json()["image"] == "redis:alpine"
+        assert len(response.json()["unapplied_changes"]) == 0
+
+    async def test_deploy_nonexistent_service(self, auth_client):
+        p = await _make_project(auth_client)
+        response = await auth_client.put(_deploy_url(p, "nope"))
+        assert response.status_code == 404
+
+    async def test_second_deploy_uses_green_slot(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc", image="redis:alpine")
+        first = await auth_client.put(_deploy_url(p, "svc"))
+        assert first.json()["slot"] == "BLUE"
+        await auth_client.put(
+            _changes_url(p, "svc"),
+            json={"field": "command", "type": "UPDATE", "new_value": "echo hi"},
+        )
+        second = await auth_client.put(_deploy_url(p, "svc"))
+        assert second.json()["slot"] == "GREEN"
+        assert second.json()["is_current_production"] is True
+
+    async def test_deploy_unhealthy_when_replica_never_runs(
+        self, auth_client, monkeypatch
+    ):
+        monkeypatch.setattr("tests.fakes.FakeSwarmService.running", False)
+        monkeypatch.setattr(
+            "app.models.healthcheck.HealthCheck.DEFAULT_TIMEOUT_SECONDS", 0
+        )
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc", image="redis:alpine")
+        response = await auth_client.put(_deploy_url(p, "svc"))
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "UNHEALTHY"
+        assert data["is_current_production"] is False
+        assert data["status_reason"]
+
+
+class TestServiceCardStatus:
+    async def test_card_status_reflects_deployment(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc", image="redis:alpine")
+        before = await auth_client.get(f"/api/projects/{p}/production/service-list/")
+        assert before.json()[0]["status"] == "NOT_DEPLOYED_YET"
+
+        await auth_client.put(_deploy_url(p, "svc"))
+        after = await auth_client.get(f"/api/projects/{p}/production/service-list/")
+        assert after.json()[0]["status"] == "HEALTHY"

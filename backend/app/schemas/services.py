@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from app.models import (
     URL,
     Config,
+    Deployment,
     DeploymentChange,
     EnvVariable,
     HealthCheck,
@@ -194,6 +195,32 @@ class ServiceChangeRequest(BaseModel):
     new_value: Any = None
 
 
+class DeploymentSchema(BaseModel):
+    id: str
+    status: str
+    status_reason: str | None
+    slot: str
+    is_current_production: bool
+    commit_message: str
+    queued_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+
+    @classmethod
+    def from_deployment(cls, deployment: Deployment) -> "DeploymentSchema":
+        return cls(
+            id=deployment.id,
+            status=deployment.status,
+            status_reason=deployment.status_reason,
+            slot=deployment.slot,
+            is_current_production=deployment.is_current_production,
+            commit_message=deployment.commit_message,
+            queued_at=deployment.queued_at,
+            started_at=deployment.started_at,
+            finished_at=deployment.finished_at,
+        )
+
+
 class ServiceCardSchema(BaseModel):
     id: str
     slug: str
@@ -222,11 +249,16 @@ class ServiceCardSchema(BaseModel):
             name = parts[0]
             tag = parts[1] if len(parts) > 1 else "latest"
 
+        status = "NOT_DEPLOYED_YET"
+        production = service.latest_production_deployment
+        if production is not None:
+            status = production.status
+
         return cls(
             id=service.id,
             slug=service.slug,
             type="docker" if service.type == "DOCKER_REGISTRY" else "git",
-            status="NOT_DEPLOYED_YET",
+            status=status,
             image=name,
             tag=tag,
             url=service.urls[0].domain if service.urls else None,

@@ -3,8 +3,12 @@ import logging
 from temporalio.client import Client
 
 from app.config import settings
+from app.services import deploy as deploy_service
 from app.services import networks
-from app.temporal.workflows import CreateProjectResourcesWorkflow
+from app.temporal.workflows import (
+    CreateProjectResourcesWorkflow,
+    DeployDockerServiceWorkflow,
+)
 
 _logger = logging.getLogger("dockyard.temporal")
 _client: Client | None = None
@@ -42,3 +46,20 @@ async def schedule_create_project_resources(
         )
     except Exception as error:  # noqa: BLE001
         _logger.warning("could not start CreateProjectResourcesWorkflow: %s", error)
+
+
+async def schedule_deploy_docker_service(db, service, environment, deployment) -> None:
+    if settings.testing:
+        await deploy_service.deploy_docker_service(db, service, environment, deployment)
+        return
+
+    try:
+        client = await get_temporal_client()
+        await client.start_workflow(
+            DeployDockerServiceWorkflow.run,
+            deployment.id,
+            id=f"deploy-{deployment.id}",
+            task_queue=settings.main_task_queue,
+        )
+    except Exception as error:  # noqa: BLE001
+        _logger.warning("could not start DeployDockerServiceWorkflow: %s", error)

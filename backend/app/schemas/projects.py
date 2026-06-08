@@ -34,7 +34,12 @@ class ProjectSchema(BaseModel):
     total_stack_services: int = 0
 
     @classmethod
-    def from_project(cls, project: Project) -> "ProjectSchema":
+    def from_project(
+        cls,
+        project: Project,
+        healthy_services: int = 0,
+        total_services: int = 0,
+    ) -> "ProjectSchema":
         return cls(
             id=project.id,
             slug=project.slug,
@@ -45,6 +50,8 @@ class ProjectSchema(BaseModel):
                 SimpleEnvironmentSchema.from_environment(env)
                 for env in project.environments
             ],
+            healthy_services=healthy_services,
+            total_services=total_services,
         )
 
 

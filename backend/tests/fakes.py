@@ -63,6 +63,49 @@ class FakeNetworks:
         return {"NetworksDeleted": []}
 
 
+class FakeSwarmService:
+    # set False on the class to simulate a replica that never reaches "running"
+    running = True
+
+    def __init__(self, service_id, name, image, labels, env=None):
+        self.id = service_id
+        self.name = name
+        self.image = image
+        self.env = env or []
+        self.attrs = {"Spec": {"Labels": labels or {}}}
+        self.removed = False
+
+    def tasks(self, filters=None):
+        state = "running" if FakeSwarmService.running else "starting"
+        return [{"Status": {"State": state}}]
+
+    def remove(self):
+        self.removed = True
+
+
+class FakeServices:
+    def __init__(self):
+        self._services: dict[str, FakeSwarmService] = {}
+        self._counter = 0
+
+    def create(self, image, name, labels=None, env=None, **kwargs):
+        self._counter += 1
+        service = FakeSwarmService(f"swarm_{self._counter}", name, image, labels, env)
+        self._services[name] = service
+        return service
+
+    def get(self, name):
+        if name not in self._services:
+            raise docker.errors.NotFound(f"service {name} not found")
+        return self._services[name]
+
+    def list(self, filters=None):
+        live = [s for s in self._services.values() if not s.removed]
+        if filters and "name" in filters:
+            return [s for s in live if s.name == filters["name"]]
+        return live
+
+
 class FakeDockerClient:
     NONEXISTANT_IMAGE = NONEXISTANT_IMAGE
 
@@ -70,3 +113,4 @@ class FakeDockerClient:
         self.containers = FakeContainers()
         self.images = FakeImages()
         self.networks = FakeNetworks()
+        self.services = FakeServices()

@@ -11,6 +11,7 @@ from app.errors import NotFound, ResourceConflict, ValidationException
 from app.models import (
     ChangeField,
     ChangeType,
+    Deployment,
     DeploymentChange,
     Environment,
     Project,
@@ -19,12 +20,14 @@ from app.models import (
 )
 from app.models.base import generate_id
 from app.schemas.services import (
+    DeploymentSchema,
     DockerServiceCreateRequest,
     ServiceCardSchema,
     ServiceChangeRequest,
     ServiceSchema,
     ServiceUpdateRequest,
 )
+from app.temporal.client import schedule_deploy_docker_service
 
 RESERVED_PORTS = {80, 443}
 CHANGE_TYPES = {"ADD", "UPDATE", "DELETE"}
@@ -179,6 +182,38 @@ async def get_service(
     environment = await get_environment_or_404(db, project, env_slug)
     service = await get_service_or_404(db, project, environment, slug)
     return ServiceSchema.from_service(service)
+
+
+@router.put(
+    "/api/projects/{project_slug}/{env_slug}/deploy-service/docker/{slug}/",
+    response_model=DeploymentSchema,
+)
+async def deploy_docker_service_view(
+    project_slug: str, env_slug: str, slug: str, user: CurrentUser, db: DBSession
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+
+    slot = Deployment.get_next_deployment_slot(service.latest_production_deployment)
+    deployment = Deployment(
+        id=generate_id("dpl_dkr_"),
+        service_id=service.id,
+        slot=slot,
+        commit_message="update service",
+    )
+    service.deployments.append(deployment)
+    service.apply_pending_changes(deployment)
+    deployment.service_snapshot = {
+        "image": service.image,
+        "command": service.command,
+    }
+    await db.commit()
+
+    await schedule_deploy_docker_service(db, service, environment, deployment)
+
+    await db.refresh(deployment, ["queued_at"])
+    return DeploymentSchema.from_deployment(deployment)
 
 
 @router.patch(
