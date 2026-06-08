@@ -421,6 +421,40 @@ class TestDeployDockerService:
         assert data["is_current_production"] is False
         assert data["status_reason"]
 
+    async def test_deploy_with_url_exposes_caddy_route(self, auth_client, fake_caddy):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="caddy:2.8-alpine")
+        await auth_client.put(
+            _changes_url(p, "app"),
+            json={
+                "field": "urls",
+                "type": "ADD",
+                "new_value": {
+                    "domain": "app.dky.local",
+                    "base_path": "/",
+                    "associated_port": 80,
+                },
+            },
+        )
+        await auth_client.put(_deploy_url(p, "app"))
+
+        assert "app.dky.local" in fake_caddy.domains
+        routes = fake_caddy.domains["app.dky.local"]["handle"][0]["routes"]
+        assert any(r["@id"] == "app.dky.local-*" for r in routes)
+        reverse_proxy = routes[0]["handle"][0]["routes"][0]["handle"][-1]
+        dials = [u["dial"] for u in reverse_proxy["upstreams"]]
+        # One upstream, aimed at the slot this deployment actually landed on.
+        assert len(dials) == 1
+        assert ".blue." in dials[0] and dials[0].endswith(":80")
+
+    async def test_deploy_without_url_does_not_touch_caddy(
+        self, auth_client, fake_caddy
+    ):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc", image="redis:alpine")
+        await auth_client.put(_deploy_url(p, "svc"))
+        assert fake_caddy.domains == {}
+
 
 class TestServiceCardStatus:
     async def test_card_status_reflects_deployment(self, auth_client):

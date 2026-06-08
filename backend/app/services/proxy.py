@@ -1,7 +1,9 @@
+from app import caddy
 from app.config import settings
 from app.utils import strip_slash_if_exists
 
 THIRTY_SECONDS_IN_NANOSECONDS = 30_000_000_000
+CADDY_SERVER_ROUTES_PATH = "/config/apps/http/servers/dockyard/routes"
 
 
 def get_caddy_id_for_url(url) -> str:
@@ -18,7 +20,7 @@ def get_active_slot(service) -> str:
     return (deployment.slot if deployment is not None else "BLUE").lower()
 
 
-def get_caddy_request_for_url(url, service, http_port) -> dict:
+def get_caddy_request_for_url(url, service) -> dict:
     proxy_handlers = []
 
     if url.strip_prefix:
@@ -31,6 +33,7 @@ def get_caddy_request_for_url(url, service, http_port) -> dict:
             }
         )
 
+    forwarded = url.associated_port
     proxy_handlers.append(
         {
             "flush_interval": -1,
@@ -50,7 +53,7 @@ def get_caddy_request_for_url(url, service, http_port) -> dict:
             "upstreams": [
                 {
                     "dial": f"{service.network_alias}.{get_active_slot(service)}."
-                    f"{settings.internal_domain}:{http_port.forwarded}"
+                    f"{settings.internal_domain}:{forwarded}"
                 },
             ],
         }
@@ -95,3 +98,28 @@ def sort_proxy_routes(routes: list[dict]) -> list[dict]:
         return -path_length, path.endswith("*"), -len(path)
 
     return sorted(routes, key=path_specificity)
+
+
+def expose_service_to_http(service) -> None:
+    client = caddy.get_caddy_client()
+
+    for url in service.urls:
+        if url.associated_port is None:
+            continue
+
+        response = client.get(f"/id/{url.domain}")
+        if response.status_code == 404:
+            client.put(
+                f"{CADDY_SERVER_ROUTES_PATH}/0",
+                get_caddy_request_for_domain(url.domain),
+            )
+
+        response = client.get(f"/id/{url.domain}/handle/0/routes")
+        existing = response.json() or []
+        routes = [
+            route for route in existing if route["@id"] != get_caddy_id_for_url(url)
+        ]
+        routes.append(get_caddy_request_for_url(url, service))
+        routes = sort_proxy_routes(routes)
+
+        client.patch(f"/id/{url.domain}/handle/0/routes", routes)

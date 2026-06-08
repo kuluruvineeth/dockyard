@@ -9,9 +9,14 @@ from app.services.proxy import (
 )
 
 
-def _url(domain="app.dky.local", base_path="/", strip_prefix=True):
+def _url(
+    domain="app.dky.local", base_path="/", strip_prefix=True, associated_port=8000
+):
     return SimpleNamespace(
-        domain=domain, base_path=base_path, strip_prefix=strip_prefix
+        domain=domain,
+        base_path=base_path,
+        strip_prefix=strip_prefix,
+        associated_port=associated_port,
     )
 
 
@@ -28,13 +33,12 @@ class TestCaddyIdForUrl:
 
 class TestCaddyRequestForUrl:
     def test_reverse_proxy_to_the_active_slot_only(self):
-        url = _url(base_path="/", strip_prefix=False)
+        url = _url(base_path="/", strip_prefix=False, associated_port=8000)
         service = SimpleNamespace(
             network_alias="dky-app-x",
             latest_production_deployment=SimpleNamespace(slot="GREEN"),
         )
-        port = SimpleNamespace(forwarded=8000)
-        route = get_caddy_request_for_url(url, service, port)
+        route = get_caddy_request_for_url(url, service)
 
         assert route["@id"] == "app.dky.local-*"
         handlers = route["handle"][0]["routes"][0]["handle"]
@@ -48,36 +52,33 @@ class TestCaddyRequestForUrl:
         assert route["match"][0]["path"] == ["/*"]
 
     def test_reverse_proxy_follows_the_slot_when_it_changes(self):
-        url = _url(base_path="/", strip_prefix=False)
+        url = _url(base_path="/", strip_prefix=False, associated_port=8000)
         service = SimpleNamespace(
             network_alias="dky-app-x",
             latest_production_deployment=SimpleNamespace(slot="BLUE"),
         )
-        port = SimpleNamespace(forwarded=8000)
-        route = get_caddy_request_for_url(url, service, port)
+        route = get_caddy_request_for_url(url, service)
         reverse_proxy = route["handle"][0]["routes"][0]["handle"][-1]
         dials = [u["dial"] for u in reverse_proxy["upstreams"]]
         assert dials == [f"dky-app-x.blue.{settings.internal_domain}:8000"]
 
     def test_reverse_proxy_defaults_to_blue_before_anything_is_live(self):
-        url = _url(base_path="/", strip_prefix=False)
+        url = _url(base_path="/", strip_prefix=False, associated_port=8000)
         service = SimpleNamespace(
             network_alias="dky-app-x", latest_production_deployment=None
         )
-        port = SimpleNamespace(forwarded=8000)
-        route = get_caddy_request_for_url(url, service, port)
+        route = get_caddy_request_for_url(url, service)
         reverse_proxy = route["handle"][0]["routes"][0]["handle"][-1]
         dials = [u["dial"] for u in reverse_proxy["upstreams"]]
         assert dials == [f"dky-app-x.blue.{settings.internal_domain}:8000"]
 
     def test_strip_prefix_prepends_rewrite_handler(self):
-        url = _url(base_path="/api", strip_prefix=True)
+        url = _url(base_path="/api", strip_prefix=True, associated_port=80)
         service = SimpleNamespace(
             network_alias="a",
             latest_production_deployment=SimpleNamespace(slot="BLUE"),
         )
-        port = SimpleNamespace(forwarded=80)
-        route = get_caddy_request_for_url(url, service, port)
+        route = get_caddy_request_for_url(url, service)
 
         handlers = route["handle"][0]["routes"][0]["handle"]
         assert handlers[0]["handler"] == "rewrite"
@@ -85,13 +86,12 @@ class TestCaddyRequestForUrl:
         assert route["match"][0]["path"] == ["/api/*"]
 
     def test_no_rewrite_when_strip_prefix_false(self):
-        url = _url(base_path="/api", strip_prefix=False)
+        url = _url(base_path="/api", strip_prefix=False, associated_port=80)
         service = SimpleNamespace(
             network_alias="a",
             latest_production_deployment=SimpleNamespace(slot="BLUE"),
         )
-        port = SimpleNamespace(forwarded=80)
-        route = get_caddy_request_for_url(url, service, port)
+        route = get_caddy_request_for_url(url, service)
         handlers = route["handle"][0]["routes"][0]["handle"]
         assert all(h["handler"] != "rewrite" for h in handlers)
 

@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     caddy_proxy_admin_host: str = Field(
         default="http://127.0.0.1:2019", alias="CADDY_PROXY_ADMIN_HOST"
     )
+    proxy_service_name: str = Field(
+        default="dockyard_proxy", alias="PROXY_SERVICE_NAME"
+    )
 
     db_name: str = Field(default="dockyard", alias="DB_NAME")
     db_user: str = Field(default="postgres", alias="DB_USER")

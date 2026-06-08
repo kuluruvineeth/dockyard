@@ -106,6 +106,49 @@ class FakeServices:
         return live
 
 
+class FakeResponse:
+    def __init__(self, status_code, data=None):
+        self.status_code = status_code
+        self._data = data
+
+    def json(self):
+        return self._data
+
+
+class FakeCaddyClient:
+    ROUTES_SUFFIX = "/handle/0/routes"
+
+    def __init__(self):
+        self.domains: dict[str, dict] = {}
+
+    def get(self, path):
+        if path.endswith(self.ROUTES_SUFFIX):
+            domain = path[len("/id/") : -len(self.ROUTES_SUFFIX)]
+            domain_route = self.domains.get(domain)
+            routes = domain_route["handle"][0]["routes"] if domain_route else []
+            return FakeResponse(200, routes)
+        if path.startswith("/id/"):
+            domain = path[len("/id/") :]
+            if domain in self.domains:
+                return FakeResponse(200, self.domains[domain])
+            return FakeResponse(404, None)
+        return FakeResponse(404, None)
+
+    def post(self, path, json):
+        self.domains[json["@id"]] = json
+        return FakeResponse(200, json)
+
+    def put(self, path, json):
+        self.domains[json["@id"]] = json
+        return FakeResponse(200, json)
+
+    def patch(self, path, json):
+        domain = path[len("/id/") : -len(self.ROUTES_SUFFIX)]
+        if domain in self.domains:
+            self.domains[domain]["handle"][0]["routes"] = json
+        return FakeResponse(200, json)
+
+
 class FakeDockerClient:
     NONEXISTANT_IMAGE = NONEXISTANT_IMAGE
 

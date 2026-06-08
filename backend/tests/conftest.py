@@ -4,13 +4,14 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app import caddy as caddy_module
 from app import db as db_module
 from app import docker_helpers as docker_helpers_module
 from app import session as session_module
 from app import throttling as throttling_module
 from app.main import app
 from app.models import Base, User
-from tests.fakes import FakeDockerClient
+from tests.fakes import FakeCaddyClient, FakeDockerClient
 
 # In memory, and never on disk, so the suite can neither wipe a running dev
 # instance nor pay for the schema twice per test. StaticPool keeps every
@@ -31,6 +32,13 @@ def _clear_sessions():
 def fake_docker(monkeypatch):
     fake = FakeDockerClient()
     monkeypatch.setattr(docker_helpers_module, "get_docker_client", lambda: fake)
+    return fake
+
+
+@pytest.fixture(autouse=True)
+def fake_caddy(monkeypatch):
+    fake = FakeCaddyClient()
+    monkeypatch.setattr(caddy_module, "get_caddy_client", lambda: fake)
     return fake
 
 

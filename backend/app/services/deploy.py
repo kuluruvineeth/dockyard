@@ -11,8 +11,10 @@ from docker.types import (
 )
 
 from app import docker_helpers
+from app.config import settings
 from app.models import DeploymentStatus
 from app.models.healthcheck import HealthCheck, HealthCheckType
+from app.services import proxy
 from app.session import now
 
 _logger = logging.getLogger("dockyard.deploy")
@@ -138,7 +140,15 @@ def create_swarm_service_for_deployment(service, environment, deployment, image)
                 target=docker_helpers.get_env_network_resource_name(
                     environment.id, service.project_id
                 ),
-                aliases=[service.network_alias] if service.network_alias else [],
+                aliases=(
+                    [
+                        service.network_alias,
+                        f"{service.network_alias}.{deployment.slot.lower()}."
+                        f"{settings.internal_domain}",
+                    ]
+                    if service.network_alias
+                    else []
+                ),
             )
         ],
         restart_policy=RestartPolicy(
@@ -322,6 +332,7 @@ async def switch_traffic_to_deployment(db, service, deployment) -> None:
             other.is_current_production = False
     deployment.is_current_production = True
     await db.commit()
+    proxy.expose_service_to_http(service)
 
 
 async def deploy_docker_service(db, service, environment, deployment) -> None:
@@ -341,5 +352,8 @@ async def deploy_docker_service(db, service, environment, deployment) -> None:
         discard_failed_deployment(service, deployment)
         return
 
-    await switch_traffic_to_deployment(db, service, deployment)
+    try:
+        await switch_traffic_to_deployment(db, service, deployment)
+    except Exception as error:  # noqa: BLE001
+        _logger.warning("could not expose service to http: %s", error)
     reap_superseded_services(service, deployment)
