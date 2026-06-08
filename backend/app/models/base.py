@@ -1,7 +1,12 @@
 from datetime import datetime
 
+import shortuuid
 from sqlalchemy import DateTime, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+def generate_id(prefix: str, length: int = 11) -> str:
+    return f"{prefix}{shortuuid.ShortUUID().random(length=length)}"
 
 
 class Base(DeclarativeBase):
