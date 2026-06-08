@@ -1,0 +1,53 @@
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+from app.models import Environment, Project
+
+
+class SimpleEnvironmentSchema(BaseModel):
+    id: str
+    name: str
+    is_preview: bool
+    created_at: datetime
+
+    @classmethod
+    def from_environment(cls, environment: Environment) -> "SimpleEnvironmentSchema":
+        return cls(
+            id=environment.id,
+            name=environment.name,
+            is_preview=environment.is_preview,
+            created_at=environment.created_at,
+        )
+
+
+class ProjectSchema(BaseModel):
+    id: str
+    slug: str
+    description: str | None
+    created_at: datetime
+    updated_at: datetime
+    environments: list[SimpleEnvironmentSchema]
+    healthy_services: int = 0
+    total_services: int = 0
+    healthy_stack_services: int = 0
+    total_stack_services: int = 0
+
+    @classmethod
+    def from_project(cls, project: Project) -> "ProjectSchema":
+        return cls(
+            id=project.id,
+            slug=project.slug,
+            description=project.description,
+            created_at=project.created_at,
+            updated_at=project.updated_at,
+            environments=[
+                SimpleEnvironmentSchema.from_environment(env)
+                for env in project.environments
+            ],
+        )
+
+
+class ProjectCreateRequest(BaseModel):
+    slug: str | None = Field(default=None, max_length=255, pattern=r"^[-a-zA-Z0-9_]+$")
+    description: str | None = None
