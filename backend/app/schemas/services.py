@@ -185,3 +185,10 @@ class DockerServiceCreateRequest(BaseModel):
 
 class ServiceUpdateRequest(BaseModel):
     slug: str = Field(min_length=1, max_length=255, pattern=r"^[-a-zA-Z0-9_]+$")
+
+
+class ServiceChangeRequest(BaseModel):
+    field: str
+    type: str
+    item_id: str | None = None
+    new_value: Any = None

@@ -1,7 +1,7 @@
 import secrets
 
 from faker import Faker
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -20,9 +20,21 @@ from app.models import (
 from app.models.base import generate_id
 from app.schemas.services import (
     DockerServiceCreateRequest,
+    ServiceChangeRequest,
     ServiceSchema,
     ServiceUpdateRequest,
 )
+
+RESERVED_PORTS = {80, 443}
+CHANGE_TYPES = {"ADD", "UPDATE", "DELETE"}
+ITEM_FIELDS = {
+    "urls",
+    "ports",
+    "volumes",
+    "env_variables",
+    "configs",
+    "shared_volumes",
+}
 
 router = APIRouter()
 fake = Faker()
@@ -76,12 +88,12 @@ async def create_docker_service(
         )
 
     slug = (body.slug or fake.slug() or "service").lower()
+    # image lives in the staged SOURCE change, applied to the service at deploy time
     service = Service(
         id=generate_id("srv_dkr_"),
         slug=slug,
         project_id=project.id,
         environment_id=environment.id,
-        image=body.image,
         type=ServiceType.DOCKER_REGISTRY.value,
         deploy_token=secrets.token_hex(16),
     )
@@ -169,3 +181,223 @@ async def update_service(
 
     await db.refresh(service, ["updated_at"])
     return ServiceSchema.from_service(service)
+
+
+def _find(collection, item_id):
+    if item_id is None:
+        return None
+    return next((i for i in collection if i.id == item_id), None)
+
+
+def _validate_change_and_old_value(service, field, ctype, item_id, new_value):
+    nv = new_value if isinstance(new_value, dict) else {}
+
+    if field == ChangeField.COMMAND.value:
+        return service.command
+    if field == ChangeField.RESOURCE_LIMITS.value:
+        return service.resource_limits
+    if field == ChangeField.SOURCE.value:
+        if not nv.get("image"):
+            raise ValidationException("new_value", "required", "An image is required.")
+        return {"image": service.image, "credentials": service.credentials}
+    if field == ChangeField.HEALTHCHECK.value:
+        h = service.healthcheck
+        if h is None:
+            return None
+        return {
+            "type": h.type,
+            "value": h.value,
+            "interval_seconds": h.interval_seconds,
+            "timeout_seconds": h.timeout_seconds,
+            "associated_port": h.associated_port,
+        }
+    if field == ChangeField.PORTS.value:
+        if ctype in ("ADD", "UPDATE"):
+            host = nv.get("host", 80)
+            if host in RESERVED_PORTS:
+                raise ValidationException(
+                    "new_value", "invalid", "Ports 80 and 443 are reserved."
+                )
+            if not nv.get("forwarded"):
+                raise ValidationException(
+                    "new_value", "required", "A forwarded port is required."
+                )
+            for port in service.ports:
+                if port.host == host and port.id != item_id:
+                    raise ValidationException(
+                        "new_value", "invalid", f"Host port {host} is already used."
+                    )
+        item = _find(service.ports, item_id)
+        return {"host": item.host, "forwarded": item.forwarded} if item else None
+    if field == ChangeField.URLS.value:
+        if ctype in ("ADD", "UPDATE"):
+            domain = nv.get("domain")
+            base_path = nv.get("base_path", "/")
+            if not domain:
+                raise ValidationException(
+                    "new_value", "required", "A domain is required."
+                )
+            for url in service.urls:
+                if (
+                    url.domain == domain
+                    and url.base_path == base_path
+                    and url.id != item_id
+                ):
+                    raise ValidationException(
+                        "new_value", "invalid", "This URL is already in use."
+                    )
+        item = _find(service.urls, item_id)
+        return {"domain": item.domain, "base_path": item.base_path} if item else None
+    if field == ChangeField.ENV_VARIABLES.value:
+        if ctype in ("ADD", "UPDATE"):
+            key = nv.get("key")
+            if not key:
+                raise ValidationException("new_value", "required", "A key is required.")
+            for env in service.env_variables:
+                if env.key == key and env.id != item_id:
+                    raise ValidationException(
+                        "new_value", "invalid", f"The variable `{key}` already exists."
+                    )
+        item = _find(service.env_variables, item_id)
+        return {"key": item.key, "value": item.value} if item else None
+    if field == ChangeField.VOLUMES.value:
+        if ctype in ("ADD", "UPDATE"):
+            container_path = nv.get("container_path")
+            if not container_path:
+                raise ValidationException(
+                    "new_value", "required", "A container path is required."
+                )
+            for volume in service.volumes:
+                if volume.container_path == container_path and volume.id != item_id:
+                    raise ValidationException(
+                        "new_value",
+                        "invalid",
+                        f"The mount point `{container_path}` is already used.",
+                    )
+        item = _find(service.volumes, item_id)
+        return (
+            {
+                "name": item.name,
+                "mode": item.mode,
+                "container_path": item.container_path,
+                "host_path": item.host_path,
+            }
+            if item
+            else None
+        )
+    if field == ChangeField.CONFIGS.value:
+        if ctype in ("ADD", "UPDATE"):
+            mount_path = nv.get("mount_path")
+            if not mount_path:
+                raise ValidationException(
+                    "new_value", "required", "A mount path is required."
+                )
+            for config in service.configs:
+                if config.mount_path == mount_path and config.id != item_id:
+                    raise ValidationException(
+                        "new_value",
+                        "invalid",
+                        f"The mount path `{mount_path}` is already used.",
+                    )
+        item = _find(service.configs, item_id)
+        return (
+            {
+                "name": item.name,
+                "mount_path": item.mount_path,
+                "contents": item.contents,
+            }
+            if item
+            else None
+        )
+    return None
+
+
+@router.put(
+    "/api/projects/{project_slug}/{env_slug}/request-service-changes/{slug}/",
+    response_model=ServiceSchema,
+)
+async def request_service_changes(
+    project_slug: str,
+    env_slug: str,
+    slug: str,
+    body: ServiceChangeRequest,
+    user: CurrentUser,
+    db: DBSession,
+):
+    if body.field not in {f.value for f in ChangeField}:
+        raise ValidationException(
+            "field", "invalid", f"`{body.field}` is not a valid field."
+        )
+    if body.type not in CHANGE_TYPES:
+        raise ValidationException(
+            "type", "invalid", f"`{body.type}` is not a valid change type."
+        )
+    if (
+        body.field in ITEM_FIELDS
+        and body.type in ("UPDATE", "DELETE")
+        and not body.item_id
+    ):
+        raise ValidationException(
+            "item_id", "required", "An item_id is required for UPDATE and DELETE."
+        )
+
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+
+    new_value = body.new_value
+    if (
+        body.field == ChangeField.RESOURCE_LIMITS.value
+        and isinstance(new_value, dict)
+        and not new_value
+    ):
+        new_value = None
+
+    old_value = _validate_change_and_old_value(
+        service, body.field, body.type, body.item_id, new_value
+    )
+
+    if new_value != old_value or body.type == "DELETE":
+        service.add_change(
+            DeploymentChange(
+                type=body.type,
+                field=body.field,
+                item_id=body.item_id,
+                new_value=new_value,
+                old_value=old_value,
+            )
+        )
+        await db.commit()
+        await db.refresh(service, ["updated_at"])
+
+    return ServiceSchema.from_service(service)
+
+
+@router.delete(
+    "/api/projects/{project_slug}/{env_slug}/cancel-service-changes/{slug}/{change_id}/",
+    status_code=204,
+)
+async def cancel_service_changes(
+    project_slug: str,
+    env_slug: str,
+    slug: str,
+    change_id: str,
+    user: CurrentUser,
+    db: DBSession,
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+
+    change = _find(service.unapplied_changes, change_id)
+    if change is None:
+        raise NotFound(f"A pending change with the id `{change_id}` does not exist.")
+
+    if change.field == ChangeField.SOURCE.value and service.image is None:
+        raise ResourceConflict(
+            "Cannot cancel this change: the service would be left without an image."
+        )
+
+    service.changes.remove(change)
+    await db.commit()
+    return Response(status_code=204)

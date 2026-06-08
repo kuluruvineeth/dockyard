@@ -20,6 +20,17 @@ async def _make_service(auth_client, project_slug, slug, image="redis:alpine"):
     return slug
 
 
+def _changes_url(project_slug, slug, env_slug="production"):
+    return f"/api/projects/{project_slug}/{env_slug}/request-service-changes/{slug}/"
+
+
+def _cancel_url(project_slug, slug, change_id, env_slug="production"):
+    return (
+        f"/api/projects/{project_slug}/{env_slug}/"
+        f"cancel-service-changes/{slug}/{change_id}/"
+    )
+
+
 class TestDockerServiceCreate:
     async def test_create_simple_service(self, auth_client):
         slug = await _make_project(auth_client)
@@ -166,3 +177,135 @@ class TestDockerServiceUpdate:
             _details_url(p, "cache-db"), json={"slug": "cache-db"}
         )
         assert response.status_code == 200
+
+
+class TestRequestServiceChanges:
+    async def test_request_source_change(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc")
+        response = await auth_client.put(
+            _changes_url(p, "svc"),
+            json={
+                "field": "source",
+                "type": "UPDATE",
+                "new_value": {"image": "nginx:latest"},
+            },
+        )
+        assert response.status_code == 200
+        sources = [
+            c for c in response.json()["unapplied_changes"] if c["field"] == "source"
+        ]
+        assert len(sources) == 1
+        assert sources[0]["new_value"]["image"] == "nginx:latest"
+
+    async def test_request_add_url(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc")
+        response = await auth_client.put(
+            _changes_url(p, "svc"),
+            json={
+                "field": "urls",
+                "type": "ADD",
+                "new_value": {"domain": "app.dky.local", "base_path": "/"},
+            },
+        )
+        assert response.status_code == 200
+        assert any(c["field"] == "urls" for c in response.json()["unapplied_changes"])
+
+    async def test_request_add_port(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc")
+        response = await auth_client.put(
+            _changes_url(p, "svc"),
+            json={
+                "field": "ports",
+                "type": "ADD",
+                "new_value": {"host": 8080, "forwarded": 80},
+            },
+        )
+        assert response.status_code == 200
+
+    async def test_request_reserved_port_rejected(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc")
+        response = await auth_client.put(
+            _changes_url(p, "svc"),
+            json={
+                "field": "ports",
+                "type": "ADD",
+                "new_value": {"host": 80, "forwarded": 8080},
+            },
+        )
+        assert response.status_code == 400
+
+    async def test_request_add_env(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc")
+        response = await auth_client.put(
+            _changes_url(p, "svc"),
+            json={
+                "field": "env_variables",
+                "type": "ADD",
+                "new_value": {"key": "FOO", "value": "bar"},
+            },
+        )
+        assert response.status_code == 200
+
+    async def test_request_invalid_field(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc")
+        response = await auth_client.put(
+            _changes_url(p, "svc"),
+            json={"field": "bogus", "type": "ADD", "new_value": {}},
+        )
+        assert response.status_code == 400
+
+    async def test_request_update_without_item_id(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc")
+        response = await auth_client.put(
+            _changes_url(p, "svc"),
+            json={
+                "field": "urls",
+                "type": "UPDATE",
+                "new_value": {"domain": "x.local"},
+            },
+        )
+        assert response.status_code == 400
+
+
+class TestCancelServiceChanges:
+    async def test_cancel_non_source_change(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc")
+        response = await auth_client.put(
+            _changes_url(p, "svc"),
+            json={
+                "field": "env_variables",
+                "type": "ADD",
+                "new_value": {"key": "FOO", "value": "bar"},
+            },
+        )
+        env_change = [
+            c
+            for c in response.json()["unapplied_changes"]
+            if c["field"] == "env_variables"
+        ][0]
+        response = await auth_client.delete(_cancel_url(p, "svc", env_change["id"]))
+        assert response.status_code == 204
+
+    async def test_cancel_source_strand_guard(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc")
+        response = await auth_client.get(_details_url(p, "svc"))
+        source_change = [
+            c for c in response.json()["unapplied_changes"] if c["field"] == "source"
+        ][0]
+        response = await auth_client.delete(_cancel_url(p, "svc", source_change["id"]))
+        assert response.status_code == 409
+
+    async def test_cancel_nonexistent_change(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc")
+        response = await auth_client.delete(_cancel_url(p, "svc", "chg_dkr_nope"))
+        assert response.status_code == 404
