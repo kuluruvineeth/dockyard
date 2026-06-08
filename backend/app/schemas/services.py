@@ -221,6 +221,11 @@ class DeploymentSchema(BaseModel):
         )
 
 
+class DeploymentListResponse(BaseModel):
+    results: list[DeploymentSchema]
+    count: int
+
+
 class ServiceCardSchema(BaseModel):
     id: str
     slug: str

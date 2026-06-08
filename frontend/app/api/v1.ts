@@ -73,6 +73,14 @@ export interface paths {
     /** Service List */
     get: operations["service_list_api_projects__project_slug___env_slug__service_list__get"];
   };
+  "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/": {
+    /** Deployment List */
+    get: operations["deployment_list_api_projects__project_slug___env_slug__service_details__slug__deployments__get"];
+  };
+  "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/{deployment_hash}/": {
+    /** Deployment Single */
+    get: operations["deployment_single_api_projects__project_slug___env_slug__service_details__slug__deployments__deployment_hash___get"];
+  };
   "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/": {
     /** Get Service */
     get: operations["get_service_api_projects__project_slug___env_slug__service_details__slug___get"];
@@ -153,6 +161,13 @@ export interface components {
       language: string;
       /** Version */
       version: number;
+    };
+    /** DeploymentListResponse */
+    DeploymentListResponse: {
+      /** Results */
+      results: components["schemas"]["DeploymentSchema"][];
+      /** Count */
+      count: number;
     };
     /** DeploymentSchema */
     DeploymentSchema: {
@@ -955,6 +970,67 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["ServiceCardSchema"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Deployment List */
+  deployment_list_api_projects__project_slug___env_slug__service_details__slug__deployments__get: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DeploymentListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Deployment Single */
+  deployment_single_api_projects__project_slug___env_slug__service_details__slug__deployments__deployment_hash___get: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+        deployment_hash: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DeploymentSchema"];
         };
       };
       /** @description Validation Error */

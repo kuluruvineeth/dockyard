@@ -504,3 +504,51 @@ class TestServiceCardStatus:
         await auth_client.put(_deploy_url(p, "svc"))
         after = await auth_client.get(f"/api/projects/{p}/production/service-list/")
         assert after.json()[0]["status"] == "HEALTHY"
+
+
+class TestDeploymentList:
+    async def test_list_deployments(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        await auth_client.put(_deploy_url(p, "app"))
+        response = await auth_client.get(
+            f"/api/projects/{p}/production/service-details/app/deployments/"
+        )
+        assert response.status_code == 200
+        assert len(response.json()["results"]) == 1
+        assert response.json()["count"] == 1
+
+    async def test_list_deployments_empty(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        response = await auth_client.get(
+            f"/api/projects/{p}/production/service-details/app/deployments/"
+        )
+        assert response.status_code == 200
+        assert len(response.json()["results"]) == 0
+
+    async def test_list_deployments_service_non_existing(self, auth_client):
+        p = await _make_project(auth_client)
+        response = await auth_client.get(
+            f"/api/projects/{p}/production/service-details/nope/deployments/"
+        )
+        assert response.status_code == 404
+
+    async def test_single_deployment(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        deploy = await auth_client.put(_deploy_url(p, "app"))
+        deployment_hash = deploy.json()["id"].rsplit("_", 1)[-1]
+        response = await auth_client.get(
+            f"/api/projects/{p}/production/service-details/app/deployments/{deployment_hash}/"
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "HEALTHY"
+
+    async def test_single_deployment_non_existing(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        response = await auth_client.get(
+            f"/api/projects/{p}/production/service-details/app/deployments/nope/"
+        )
+        assert response.status_code == 404

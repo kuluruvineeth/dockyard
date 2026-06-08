@@ -20,6 +20,7 @@ from app.models import (
 )
 from app.models.base import generate_id
 from app.schemas.services import (
+    DeploymentListResponse,
     DeploymentSchema,
     DockerServiceCreateRequest,
     ServiceCardSchema,
@@ -169,6 +170,63 @@ async def service_list(
 
     services = (await db.execute(statement)).scalars().all()
     return [ServiceCardSchema.from_service(service) for service in services]
+
+
+@router.get(
+    "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/",
+    response_model=DeploymentListResponse,
+)
+async def deployment_list(
+    project_slug: str, env_slug: str, slug: str, user: CurrentUser, db: DBSession
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+
+    result = await db.execute(
+        select(Deployment)
+        .where(Deployment.service_id == service.id)
+        .order_by(Deployment.queued_at.desc())
+    )
+    deployments = result.scalars().all()
+    return DeploymentListResponse(
+        results=[DeploymentSchema.from_deployment(d) for d in deployments],
+        count=len(deployments),
+    )
+
+
+@router.get(
+    "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/{deployment_hash}/",
+    response_model=DeploymentSchema,
+)
+async def deployment_single(
+    project_slug: str,
+    env_slug: str,
+    slug: str,
+    deployment_hash: str,
+    user: CurrentUser,
+    db: DBSession,
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+
+    result = await db.execute(
+        select(Deployment).where(Deployment.service_id == service.id)
+    )
+    deployment = next(
+        (
+            d
+            for d in result.scalars()
+            if d.unprefixed_hash == deployment_hash or d.id == deployment_hash
+        ),
+        None,
+    )
+    if deployment is None:
+        raise NotFound(
+            f"A deployment with the hash `{deployment_hash}` does not exist."
+        )
+    return DeploymentSchema.from_deployment(deployment)
 
 
 @router.get(
