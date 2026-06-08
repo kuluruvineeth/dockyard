@@ -72,6 +72,14 @@ class TestProjectCreateView:
         assert len(envs) == 1
         assert envs[0]["name"] == "production"
 
+    async def test_provisions_production_network(self, auth_client, fake_docker):
+        response = await auth_client.post("/api/projects/", json={"slug": "dky-net"})
+        assert response.status_code == 201
+        networks = fake_docker.networks.list()
+        assert len(networks) == 1
+        assert networks[0].name.startswith("net-")
+        assert networks[0].attrs["Labels"]["is_production"] == "True"
+
 
 class TestProjectUpdateView:
     async def test_successfully_update_slug(self, auth_client, user, session):

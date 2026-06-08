@@ -12,6 +12,7 @@ from app.schemas.projects import (
     ProjectSchema,
     ProjectUpdateRequest,
 )
+from app.temporal.client import schedule_create_project_resources
 
 router = APIRouter()
 fake = Faker()
@@ -55,7 +56,10 @@ async def create_project(body: ProjectCreateRequest, user: CurrentUser, db: DBSe
         raise ResourceConflict(f"A project with the slug `{slug}` already exists.")
 
     result = await db.execute(select(Project).where(Project.id == project.id))
-    return ProjectSchema.from_project(result.scalar_one())
+    project = result.scalar_one()
+    if project.production_env is not None:
+        await schedule_create_project_resources(project.id, project.production_env.id)
+    return ProjectSchema.from_project(project)
 
 
 async def _get_project_or_404(db, user, slug: str) -> Project:

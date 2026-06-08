@@ -34,10 +34,24 @@ class Settings(BaseSettings):
     commit_sha: str | None = Field(default=None, alias="COMMIT_SHA")
     loki_host: str = Field(default="http://127.0.0.1:3100", alias="LOKI_HOST")
 
+    temporalio_server_url: str = Field(
+        default="127.0.0.1:7233", alias="TEMPORALIO_SERVER_URL"
+    )
+    temporalio_namespace: str = Field(default="default", alias="TEMPORALIO_NAMESPACE")
+    main_task_queue: str = "main-task-queue"
+    worker_task_queue: str | None = Field(
+        default=None, alias="TEMPORALIO_WORKER_TASK_QUEUE"
+    )
+
     @computed_field
     @property
     def debug(self) -> bool:
         return self.environment != PRODUCTION_ENV
+
+    @computed_field
+    @property
+    def temporalio_task_queue(self) -> str:
+        return self.worker_task_queue or self.main_task_queue
 
     @computed_field
     @property
