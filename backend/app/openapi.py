@@ -8,11 +8,75 @@ SCHEMA_PATH = os.path.join(
     os.path.dirname(__file__), "..", "..", "openapi", "schema.yml"
 )
 
+_VALIDATION_ITEM = {
+    "type": "object",
+    "properties": {
+        "code": {"type": "string"},
+        "detail": {"type": "string"},
+        "attr": {"type": "string"},
+    },
+    "required": ["code", "detail", "attr"],
+}
+_CLIENT_ITEM = {
+    "type": "object",
+    "properties": {
+        "code": {"type": "string"},
+        "detail": {"type": "string"},
+        "attr": {"type": "string", "nullable": True},
+    },
+    "required": ["code", "detail", "attr"],
+}
+
+
+def _envelope(type_value: str, item_ref: str) -> dict:
+    return {
+        "type": "object",
+        "properties": {
+            "type": {"type": "string", "enum": [type_value]},
+            "errors": {
+                "type": "array",
+                "items": {"$ref": f"#/components/schemas/{item_ref}"},
+            },
+        },
+        "required": ["type", "errors"],
+    }
+
+
+ERROR_COMPONENTS = {
+    "ValidationErrorItem": _VALIDATION_ITEM,
+    "ClientServerErrorItem": _CLIENT_ITEM,
+    "ValidationErrorResponse": _envelope("validation_error", "ValidationErrorItem"),
+    "ClientErrorResponse": _envelope("client_error", "ClientServerErrorItem"),
+    "ServerErrorResponse": _envelope("server_error", "ClientServerErrorItem"),
+    "ErrorResponse": {
+        "oneOf": [
+            {"$ref": "#/components/schemas/ValidationErrorResponse"},
+            {"$ref": "#/components/schemas/ClientErrorResponse"},
+            {"$ref": "#/components/schemas/ServerErrorResponse"},
+        ]
+    },
+}
+
 
 def build_schema() -> dict:
     schema = app.openapi()
     schema["info"]["title"] = "Dockyard API"
     schema["info"]["version"] = "1.0.0 (v1)"
+
+    components = schema.setdefault("components", {}).setdefault("schemas", {})
+    components.update(ERROR_COMPONENTS)
+    components.pop("HTTPValidationError", None)
+    components.pop("ValidationError", None)
+
+    error_ref = {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}
+    for path_item in schema.get("paths", {}).values():
+        for operation in path_item.values():
+            if not isinstance(operation, dict):
+                continue
+            for status_code, response in operation.get("responses", {}).items():
+                if str(status_code)[0] in ("4", "5"):
+                    response["content"] = {"application/json": dict(error_ref)}
+
     return schema
 
 

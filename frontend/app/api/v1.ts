@@ -80,11 +80,6 @@ export interface components {
       /** Success */
       success: boolean;
     };
-    /** HTTPValidationError */
-    HTTPValidationError: {
-      /** Detail */
-      detail?: components["schemas"]["ValidationError"][];
-    };
     /** LoginRequest */
     LoginRequest: {
       /** Username */
@@ -161,19 +156,32 @@ export interface components {
       /** Is Superuser */
       is_superuser: boolean;
     };
-    /** ValidationError */
-    ValidationError: {
-      /** Location */
-      loc: (string | number)[];
-      /** Message */
-      msg: string;
-      /** Error Type */
-      type: string;
-      /** Input */
-      input?: unknown;
-      /** Context */
-      ctx?: Record<string, never>;
+    ValidationErrorItem: {
+      code: string;
+      detail: string;
+      attr: string;
     };
+    ClientServerErrorItem: {
+      code: string;
+      detail: string;
+      attr: string | null;
+    };
+    ValidationErrorResponse: {
+      /** @enum {string} */
+      type: "validation_error";
+      errors: components["schemas"]["ValidationErrorItem"][];
+    };
+    ClientErrorResponse: {
+      /** @enum {string} */
+      type: "client_error";
+      errors: components["schemas"]["ClientServerErrorItem"][];
+    };
+    ServerErrorResponse: {
+      /** @enum {string} */
+      type: "server_error";
+      errors: components["schemas"]["ClientServerErrorItem"][];
+    };
+    ErrorResponse: components["schemas"]["ValidationErrorResponse"] | components["schemas"]["ClientErrorResponse"] | components["schemas"]["ServerErrorResponse"];
   };
   responses: never;
   parameters: never;
@@ -221,7 +229,7 @@ export interface operations {
       /** @description Validation Error */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };
@@ -285,7 +293,7 @@ export interface operations {
       /** @description Validation Error */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };
@@ -307,7 +315,7 @@ export interface operations {
       /** @description Validation Error */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };
@@ -329,7 +337,7 @@ export interface operations {
       /** @description Validation Error */
       422: {
         content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
     };

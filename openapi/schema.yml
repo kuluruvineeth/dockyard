@@ -44,8 +44,8 @@ paths:
           description: Validation Error
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+              schema: &id001
+                $ref: '#/components/schemas/ErrorResponse'
   /api/auth/logout:
     delete:
       summary: Logout View
@@ -107,8 +107,7 @@ paths:
           description: Validation Error
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+              schema: *id001
   /api/auth/change-password:
     post:
       summary: Change Password
@@ -130,8 +129,7 @@ paths:
           description: Validation Error
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+              schema: *id001
   /api/auth/update-profile:
     patch:
       summary: Update Profile
@@ -153,8 +151,7 @@ paths:
           description: Validation Error
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+              schema: *id001
   /api/settings:
     get:
       summary: Get Api Settings
@@ -228,15 +225,6 @@ components:
       required:
       - success
       title: ChangePasswordResponse
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
     LoginRequest:
       properties:
         username:
@@ -386,29 +374,77 @@ components:
       - last_name
       - is_superuser
       title: UserSchema
-    ValidationError:
+    ValidationErrorItem:
+      type: object
       properties:
-        loc:
-          items:
-            anyOf:
-            - type: string
-            - type: integer
-          type: array
-          title: Location
-        msg:
+        code:
           type: string
-          title: Message
+        detail:
+          type: string
+        attr:
+          type: string
+      required:
+      - code
+      - detail
+      - attr
+    ClientServerErrorItem:
+      type: object
+      properties:
+        code:
+          type: string
+        detail:
+          type: string
+        attr:
+          type: string
+          nullable: true
+      required:
+      - code
+      - detail
+      - attr
+    ValidationErrorResponse:
+      type: object
+      properties:
         type:
           type: string
-          title: Error Type
-        input:
-          title: Input
-        ctx:
-          type: object
-          title: Context
-      type: object
+          enum:
+          - validation_error
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationErrorItem'
       required:
-      - loc
-      - msg
       - type
-      title: ValidationError
+      - errors
+    ClientErrorResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - client_error
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientServerErrorItem'
+      required:
+      - type
+      - errors
+    ServerErrorResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - server_error
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientServerErrorItem'
+      required:
+      - type
+      - errors
+    ErrorResponse:
+      oneOf:
+      - $ref: '#/components/schemas/ValidationErrorResponse'
+      - $ref: '#/components/schemas/ClientErrorResponse'
+      - $ref: '#/components/schemas/ServerErrorResponse'
