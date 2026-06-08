@@ -1,0 +1,7 @@
+{
+  "name": "backend",
+  "private": true,
+  "scripts": {
+    "openapi": "uv run python -m app.openapi"
+  }
+}

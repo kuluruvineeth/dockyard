@@ -1,0 +1,41 @@
+{
+  "linter": {
+    "enabled": false,
+    "rules": {
+      "a11y": {
+        "noBlankTarget": "off"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "formatWithErrors": true,
+    "indentStyle": "tab",
+    "indentWidth": 2,
+    "lineWidth": 80
+  },
+  "javascript": {
+    "formatter": {
+      "arrowParentheses": "always",
+      "indentStyle": "space",
+      "trailingCommas": "none",
+      "indentWidth": 2
+    }
+  },
+  "json": {
+    "formatter": {
+      "indentWidth": 2,
+      "indentStyle": "space"
+    }
+  },
+  "files": {
+    "ignore": [
+      "./frontend/app/api/v1.ts",
+      "./frontend/dist/**",
+      "./frontend/node_modules/**",
+      "./frontend/build/**",
+      "./frontend/.react-router/**",
+      "node_modules/**"
+    ]
+  }
+}

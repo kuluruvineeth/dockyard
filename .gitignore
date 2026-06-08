@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+.env
+.env.local
+*.sqlite3
+*.db
+node_modules/
+build/
+dist/
+.turbo/
+.react-router/

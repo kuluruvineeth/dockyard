@@ -1,0 +1,16 @@
+{
+  "name": "@dockyard/root",
+  "private": true,
+  "scripts": {
+    "format": "biome check ./frontend ./docker --write",
+    "test": "pnpm -r run test",
+    "gen:api": "pnpm run --prefix backend openapi && pnpm run --prefix frontend generate:api"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.8.3",
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": "20"
+  }
+}
