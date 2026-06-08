@@ -18,7 +18,11 @@ from app.models import (
     ServiceType,
 )
 from app.models.base import generate_id
-from app.schemas.services import DockerServiceCreateRequest, ServiceSchema
+from app.schemas.services import (
+    DockerServiceCreateRequest,
+    ServiceSchema,
+    ServiceUpdateRequest,
+)
 
 router = APIRouter()
 fake = Faker()
@@ -104,4 +108,64 @@ async def create_docker_service(
         )
 
     await db.refresh(service, ["created_at", "updated_at"])
+    return ServiceSchema.from_service(service)
+
+
+async def get_service_or_404(
+    db, project: Project, environment: Environment, slug: str
+) -> Service:
+    result = await db.execute(
+        select(Service).where(
+            Service.project_id == project.id,
+            Service.environment_id == environment.id,
+            Service.slug == slug,
+        )
+    )
+    service = result.scalar_one_or_none()
+    if service is None:
+        raise NotFound(
+            f"A service with the slug `{slug}` does not exist in this environment."
+        )
+    return service
+
+
+@router.get(
+    "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/",
+    response_model=ServiceSchema,
+)
+async def get_service(
+    project_slug: str, env_slug: str, slug: str, user: CurrentUser, db: DBSession
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+    return ServiceSchema.from_service(service)
+
+
+@router.patch(
+    "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/",
+    response_model=ServiceSchema,
+)
+async def update_service(
+    project_slug: str,
+    env_slug: str,
+    slug: str,
+    body: ServiceUpdateRequest,
+    user: CurrentUser,
+    db: DBSession,
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+
+    service.slug = body.slug.lower()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise ResourceConflict(
+            f"The slug `{body.slug}` is already used by another service."
+        )
+
+    await db.refresh(service, ["updated_at"])
     return ServiceSchema.from_service(service)

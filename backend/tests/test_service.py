@@ -8,6 +8,18 @@ def _create_url(project_slug, env_slug="production"):
     return f"/api/projects/{project_slug}/{env_slug}/create-service/docker/"
 
 
+def _details_url(project_slug, slug, env_slug="production"):
+    return f"/api/projects/{project_slug}/{env_slug}/service-details/{slug}/"
+
+
+async def _make_service(auth_client, project_slug, slug, image="redis:alpine"):
+    response = await auth_client.post(
+        _create_url(project_slug), json={"slug": slug, "image": image}
+    )
+    assert response.status_code == 201
+    return slug
+
+
 class TestDockerServiceCreate:
     async def test_create_simple_service(self, auth_client):
         slug = await _make_project(auth_client)
@@ -90,3 +102,67 @@ class TestDockerServiceCreate:
             json={"slug": "main-app", "image": fake_docker.NONEXISTANT_IMAGE},
         )
         assert response.status_code == 400
+
+
+class TestDockerServiceGet:
+    async def test_get_service_successful(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "cache-db")
+        response = await auth_client.get(_details_url(p, "cache-db"))
+        assert response.status_code == 200
+        assert response.json()["slug"] == "cache-db"
+
+    async def test_get_service_non_existing(self, auth_client):
+        p = await _make_project(auth_client)
+        response = await auth_client.get(_details_url(p, "cache-db"))
+        assert response.status_code == 404
+
+    async def test_get_service_wrong_project(self, auth_client):
+        p1 = await _make_project(auth_client, "kiss-cam")
+        p2 = await _make_project(auth_client, "camly")
+        await _make_service(auth_client, p1, "cache-db")
+        response = await auth_client.get(_details_url(p2, "cache-db"))
+        assert response.status_code == 404
+
+
+class TestDockerServiceUpdate:
+    async def test_update_slug(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "cache-db")
+        response = await auth_client.patch(
+            _details_url(p, "cache-db"), json={"slug": "redis-cache"}
+        )
+        assert response.status_code == 200
+        assert response.json()["slug"] == "redis-cache"
+
+    async def test_bad_request(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "cache-db")
+        response = await auth_client.patch(
+            _details_url(p, "cache-db"), json={"slug": "Cache DB"}
+        )
+        assert response.status_code == 400
+
+    async def test_non_existent(self, auth_client):
+        p = await _make_project(auth_client)
+        response = await auth_client.patch(
+            _details_url(p, "cache-db"), json={"slug": "x"}
+        )
+        assert response.status_code == 404
+
+    async def test_already_existing_slug(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "cache-db")
+        await _make_service(auth_client, p, "other-svc")
+        response = await auth_client.patch(
+            _details_url(p, "cache-db"), json={"slug": "other-svc"}
+        )
+        assert response.status_code == 409
+
+    async def test_rename_to_self(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "cache-db")
+        response = await auth_client.patch(
+            _details_url(p, "cache-db"), json={"slug": "cache-db"}
+        )
+        assert response.status_code == 200

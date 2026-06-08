@@ -181,3 +181,7 @@ class DockerServiceCreateRequest(BaseModel):
     slug: str | None = Field(default=None, max_length=255, pattern=r"^[-a-zA-Z0-9_]+$")
     image: str = Field(min_length=1)
     container_registry_credentials_id: str | None = None
+
+
+class ServiceUpdateRequest(BaseModel):
+    slug: str = Field(min_length=1, max_length=255, pattern=r"^[-a-zA-Z0-9_]+$")
