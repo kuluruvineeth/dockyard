@@ -1,5 +1,11 @@
 from app.models.base import Base, TimestampedModel
 from app.models.config import Config
+from app.models.deployment import (
+    Deployment,
+    DeploymentSlot,
+    DeploymentStatus,
+    DeploymentTriggerMethod,
+)
 from app.models.deployment_change import ChangeField, ChangeType, DeploymentChange
 from app.models.env_variable import EnvVariable
 from app.models.environment import Environment
@@ -33,4 +39,8 @@ __all__ = [
     "DeploymentChange",
     "ChangeType",
     "ChangeField",
+    "Deployment",
+    "DeploymentStatus",
+    "DeploymentSlot",
+    "DeploymentTriggerMethod",
 ]

@@ -43,6 +43,9 @@ class DeploymentChange(Base, TimestampedModel):
     service_id: Mapped[str] = mapped_column(
         ForeignKey("service.id", ondelete="CASCADE"), index=True
     )
-    deployment_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    deployment_id: Mapped[str | None] = mapped_column(
+        ForeignKey("deployment.id", ondelete="SET NULL"), nullable=True
+    )
 
     service = relationship("Service", back_populates="changes")
+    deployment = relationship("Deployment", back_populates="changes")

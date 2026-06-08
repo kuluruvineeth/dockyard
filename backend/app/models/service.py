@@ -144,6 +144,13 @@ class Service(Base, TimestampedModel):
         lazy="selectin",
         cascade="all, delete-orphan",
         back_populates="service",
+        foreign_keys="DeploymentChange.service_id",
+    )
+    deployments = relationship(
+        "Deployment",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        back_populates="service",
     )
     project = relationship("Project")
     environment = relationship("Environment")
@@ -179,6 +186,13 @@ class Service(Base, TimestampedModel):
     @property
     def applied_changes(self) -> list:
         return [change for change in self.changes if change.applied]
+
+    @property
+    def latest_production_deployment(self):
+        for deployment in self.deployments:
+            if deployment.is_current_production:
+                return deployment
+        return None
 
     _SINGLE_VALUE_FIELDS = {
         "source",
