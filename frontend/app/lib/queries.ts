@@ -57,6 +57,42 @@ export const userQueries = {
   })
 };
 
+export const environmentQueries = {
+  serviceList: (projectSlug: string, envSlug: string, query?: string) =>
+    queryOptions({
+      queryKey: ["SERVICE_LIST", projectSlug, envSlug, query ?? ""] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await apiClient.GET(
+          "/api/projects/{project_slug}/{env_slug}/service-list/",
+          {
+            params: {
+              path: { project_slug: projectSlug, env_slug: envSlug },
+              query: query ? { query } : {}
+            },
+            signal
+          }
+        );
+        return data ?? [];
+      }
+    })
+};
+
+export const dockerHubQueries = {
+  images: (query: string) =>
+    queryOptions({
+      queryKey: ["DOCKER_HUB_IMAGES", query] as const,
+      queryFn: async ({ signal }) => {
+        if (!query) return [];
+        const { data } = await apiClient.GET("/api/docker/image-search/", {
+          params: { query: { q: query } },
+          signal
+        });
+        return data?.images ?? [];
+      },
+      enabled: query.length > 0
+    })
+};
+
 export const serverQueries = {
   settings: queryOptions({
     queryKey: ["SETTINGS"] as const,

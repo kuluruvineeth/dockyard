@@ -387,6 +387,265 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/projects/{project_slug}/{env_slug}/create-service/docker/:
+    post:
+      summary: Create Docker Service
+      operationId: create_docker_service_api_projects__project_slug___env_slug__create_service_docker__post
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DockerServiceCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+  /api/projects/{project_slug}/{env_slug}/service-list/:
+    get:
+      summary: Service List
+      operationId: service_list_api_projects__project_slug___env_slug__service_list__get
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      - name: query
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Query
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceCardSchema'
+                title: Response Service List Api Projects  Project Slug   Env Slug  Service
+                  List  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+  /api/projects/{project_slug}/{env_slug}/service-details/{slug}/:
+    get:
+      summary: Get Service
+      operationId: get_service_api_projects__project_slug___env_slug__service_details__slug___get
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+    patch:
+      summary: Update Service
+      operationId: update_service_api_projects__project_slug___env_slug__service_details__slug___patch
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+  /api/projects/{project_slug}/{env_slug}/request-service-changes/{slug}/:
+    put:
+      summary: Request Service Changes
+      operationId: request_service_changes_api_projects__project_slug___env_slug__request_service_changes__slug___put
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceChangeRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+  /api/projects/{project_slug}/{env_slug}/cancel-service-changes/{slug}/{change_id}/:
+    delete:
+      summary: Cancel Service Changes
+      operationId: cancel_service_changes_api_projects__project_slug___env_slug__cancel_service_changes__slug___change_id___delete
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      - name: change_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Change Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
 components:
   schemas:
     AuthedResponse:
@@ -438,6 +697,74 @@ components:
       required:
       - success
       title: ChangePasswordResponse
+    ChangeSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        type:
+          type: string
+          title: Type
+        field:
+          type: string
+          title: Field
+        item_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Item Id
+        old_value:
+          anyOf:
+          - {}
+          - type: 'null'
+          title: Old Value
+        new_value:
+          anyOf:
+          - {}
+          - type: 'null'
+          title: New Value
+        applied:
+          type: boolean
+          title: Applied
+      type: object
+      required:
+      - id
+      - type
+      - field
+      - item_id
+      - old_value
+      - new_value
+      - applied
+      title: ChangeSchema
+    ConfigSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        mount_path:
+          type: string
+          title: Mount Path
+        contents:
+          type: string
+          title: Contents
+        language:
+          type: string
+          title: Language
+        version:
+          type: integer
+          title: Version
+      type: object
+      required:
+      - id
+      - name
+      - mount_path
+      - contents
+      - language
+      - version
+      title: ConfigSchema
     DockerImageResult:
       properties:
         full_image:
@@ -462,6 +789,76 @@ components:
       required:
       - images
       title: DockerImageSearchResponse
+    DockerServiceCreateRequest:
+      properties:
+        slug:
+          anyOf:
+          - type: string
+            maxLength: 255
+            pattern: ^[-a-zA-Z0-9_]+$
+          - type: 'null'
+          title: Slug
+        image:
+          type: string
+          minLength: 1
+          title: Image
+        container_registry_credentials_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Container Registry Credentials Id
+      type: object
+      required:
+      - image
+      title: DockerServiceCreateRequest
+    EnvVariableSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        key:
+          type: string
+          title: Key
+        value:
+          type: string
+          title: Value
+      type: object
+      required:
+      - id
+      - key
+      - value
+      title: EnvVariableSchema
+    HealthCheckSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        type:
+          type: string
+          title: Type
+        value:
+          type: string
+          title: Value
+        interval_seconds:
+          type: integer
+          title: Interval Seconds
+        timeout_seconds:
+          type: integer
+          title: Timeout Seconds
+        associated_port:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Associated Port
+      type: object
+      required:
+      - id
+      - type
+      - value
+      - interval_seconds
+      - timeout_seconds
+      - associated_port
+      title: HealthCheckSchema
     LoginRequest:
       properties:
         username:
@@ -497,6 +894,23 @@ components:
           default: pong
       type: object
       title: PingResponse
+    PortSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        host:
+          type: integer
+          title: Host
+        forwarded:
+          type: integer
+          title: Forwarded
+      type: object
+      required:
+      - id
+      - host
+      - forwarded
+      title: PortSchema
     ProjectCreateRequest:
       properties:
         slug:
@@ -593,6 +1007,172 @@ components:
       - no_of_cpus
       - max_memory_in_bytes
       title: ResourceLimitResponse
+    ServiceCardSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        slug:
+          type: string
+          title: Slug
+        type:
+          type: string
+          title: Type
+        status:
+          type: string
+          title: Status
+        image:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Image
+        tag:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tag
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+        volume_number:
+          type: integer
+          title: Volume Number
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - slug
+      - type
+      - status
+      - image
+      - tag
+      - url
+      - volume_number
+      - updated_at
+      title: ServiceCardSchema
+    ServiceChangeRequest:
+      properties:
+        field:
+          type: string
+          title: Field
+        type:
+          type: string
+          title: Type
+        item_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Item Id
+        new_value:
+          title: New Value
+      type: object
+      required:
+      - field
+      - type
+      title: ServiceChangeRequest
+    ServiceSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        slug:
+          type: string
+          title: Slug
+        type:
+          type: string
+          title: Type
+        image:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Image
+        command:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Command
+        network_alias:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Network Alias
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        urls:
+          items:
+            $ref: '#/components/schemas/URLSchema'
+          type: array
+          title: Urls
+        ports:
+          items:
+            $ref: '#/components/schemas/PortSchema'
+          type: array
+          title: Ports
+        volumes:
+          items:
+            $ref: '#/components/schemas/VolumeSchema'
+          type: array
+          title: Volumes
+        env_variables:
+          items:
+            $ref: '#/components/schemas/EnvVariableSchema'
+          type: array
+          title: Env Variables
+        configs:
+          items:
+            $ref: '#/components/schemas/ConfigSchema'
+          type: array
+          title: Configs
+        healthcheck:
+          anyOf:
+          - $ref: '#/components/schemas/HealthCheckSchema'
+          - type: 'null'
+        unapplied_changes:
+          items:
+            $ref: '#/components/schemas/ChangeSchema'
+          type: array
+          title: Unapplied Changes
+      type: object
+      required:
+      - id
+      - slug
+      - type
+      - image
+      - command
+      - network_alias
+      - created_at
+      - updated_at
+      - urls
+      - ports
+      - volumes
+      - env_variables
+      - configs
+      - healthcheck
+      - unapplied_changes
+      title: ServiceSchema
+    ServiceUpdateRequest:
+      properties:
+        slug:
+          type: string
+          maxLength: 255
+          minLength: 1
+          pattern: ^[-a-zA-Z0-9_]+$
+          title: Slug
+      type: object
+      required:
+      - slug
+      title: ServiceUpdateRequest
     SettingsResponse:
       properties:
         root_domain:
@@ -638,6 +1218,40 @@ components:
       - is_preview
       - created_at
       title: SimpleEnvironmentSchema
+    URLSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        domain:
+          type: string
+          title: Domain
+        base_path:
+          type: string
+          title: Base Path
+        strip_prefix:
+          type: boolean
+          title: Strip Prefix
+        redirect_to:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Redirect To
+        associated_port:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Associated Port
+      type: object
+      required:
+      - id
+      - domain
+      - base_path
+      - strip_prefix
+      - redirect_to
+      - associated_port
+      title: URLSchema
     UpdateProfileRequest:
       properties:
         username:
@@ -716,6 +1330,33 @@ components:
       - last_name
       - is_superuser
       title: UserSchema
+    VolumeSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        mode:
+          type: string
+          title: Mode
+        container_path:
+          type: string
+          title: Container Path
+        host_path:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Host Path
+      type: object
+      required:
+      - id
+      - name
+      - mode
+      - container_path
+      - host_path
+      title: VolumeSchema
     ValidationErrorItem:
       type: object
       properties:

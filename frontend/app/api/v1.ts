@@ -65,6 +65,28 @@ export interface paths {
     /** Image Search */
     get: operations["image_search_api_docker_image_search__get"];
   };
+  "/api/projects/{project_slug}/{env_slug}/create-service/docker/": {
+    /** Create Docker Service */
+    post: operations["create_docker_service_api_projects__project_slug___env_slug__create_service_docker__post"];
+  };
+  "/api/projects/{project_slug}/{env_slug}/service-list/": {
+    /** Service List */
+    get: operations["service_list_api_projects__project_slug___env_slug__service_list__get"];
+  };
+  "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/": {
+    /** Get Service */
+    get: operations["get_service_api_projects__project_slug___env_slug__service_details__slug___get"];
+    /** Update Service */
+    patch: operations["update_service_api_projects__project_slug___env_slug__service_details__slug___patch"];
+  };
+  "/api/projects/{project_slug}/{env_slug}/request-service-changes/{slug}/": {
+    /** Request Service Changes */
+    put: operations["request_service_changes_api_projects__project_slug___env_slug__request_service_changes__slug___put"];
+  };
+  "/api/projects/{project_slug}/{env_slug}/cancel-service-changes/{slug}/{change_id}/": {
+    /** Cancel Service Changes */
+    delete: operations["cancel_service_changes_api_projects__project_slug___env_slug__cancel_service_changes__slug___change_id___delete"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -96,6 +118,38 @@ export interface components {
       /** Success */
       success: boolean;
     };
+    /** ChangeSchema */
+    ChangeSchema: {
+      /** Id */
+      id: string;
+      /** Type */
+      type: string;
+      /** Field */
+      field: string;
+      /** Item Id */
+      item_id: string | null;
+      /** Old Value */
+      old_value: unknown;
+      /** New Value */
+      new_value: unknown;
+      /** Applied */
+      applied: boolean;
+    };
+    /** ConfigSchema */
+    ConfigSchema: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Mount Path */
+      mount_path: string;
+      /** Contents */
+      contents: string;
+      /** Language */
+      language: string;
+      /** Version */
+      version: number;
+    };
     /** DockerImageResult */
     DockerImageResult: {
       /** Full Image */
@@ -107,6 +161,39 @@ export interface components {
     DockerImageSearchResponse: {
       /** Images */
       images: components["schemas"]["DockerImageResult"][];
+    };
+    /** DockerServiceCreateRequest */
+    DockerServiceCreateRequest: {
+      /** Slug */
+      slug?: string | null;
+      /** Image */
+      image: string;
+      /** Container Registry Credentials Id */
+      container_registry_credentials_id?: string | null;
+    };
+    /** EnvVariableSchema */
+    EnvVariableSchema: {
+      /** Id */
+      id: string;
+      /** Key */
+      key: string;
+      /** Value */
+      value: string;
+    };
+    /** HealthCheckSchema */
+    HealthCheckSchema: {
+      /** Id */
+      id: string;
+      /** Type */
+      type: string;
+      /** Value */
+      value: string;
+      /** Interval Seconds */
+      interval_seconds: number;
+      /** Timeout Seconds */
+      timeout_seconds: number;
+      /** Associated Port */
+      associated_port: number | null;
     };
     /** LoginRequest */
     LoginRequest: {
@@ -128,6 +215,15 @@ export interface components {
        * @constant
        */
       ping?: "pong";
+    };
+    /** PortSchema */
+    PortSchema: {
+      /** Id */
+      id: string;
+      /** Host */
+      host: number;
+      /** Forwarded */
+      forwarded: number;
     };
     /** ProjectCreateRequest */
     ProjectCreateRequest: {
@@ -191,6 +287,84 @@ export interface components {
       /** Max Memory In Bytes */
       max_memory_in_bytes: number;
     };
+    /** ServiceCardSchema */
+    ServiceCardSchema: {
+      /** Id */
+      id: string;
+      /** Slug */
+      slug: string;
+      /** Type */
+      type: string;
+      /** Status */
+      status: string;
+      /** Image */
+      image: string | null;
+      /** Tag */
+      tag: string | null;
+      /** Url */
+      url: string | null;
+      /** Volume Number */
+      volume_number: number;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** ServiceChangeRequest */
+    ServiceChangeRequest: {
+      /** Field */
+      field: string;
+      /** Type */
+      type: string;
+      /** Item Id */
+      item_id?: string | null;
+      /** New Value */
+      new_value?: unknown;
+    };
+    /** ServiceSchema */
+    ServiceSchema: {
+      /** Id */
+      id: string;
+      /** Slug */
+      slug: string;
+      /** Type */
+      type: string;
+      /** Image */
+      image: string | null;
+      /** Command */
+      command: string | null;
+      /** Network Alias */
+      network_alias: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Urls */
+      urls: components["schemas"]["URLSchema"][];
+      /** Ports */
+      ports: components["schemas"]["PortSchema"][];
+      /** Volumes */
+      volumes: components["schemas"]["VolumeSchema"][];
+      /** Env Variables */
+      env_variables: components["schemas"]["EnvVariableSchema"][];
+      /** Configs */
+      configs: components["schemas"]["ConfigSchema"][];
+      healthcheck: components["schemas"]["HealthCheckSchema"] | null;
+      /** Unapplied Changes */
+      unapplied_changes: components["schemas"]["ChangeSchema"][];
+    };
+    /** ServiceUpdateRequest */
+    ServiceUpdateRequest: {
+      /** Slug */
+      slug: string;
+    };
     /** SettingsResponse */
     SettingsResponse: {
       /** Root Domain */
@@ -215,6 +389,23 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+    };
+    /** URLSchema */
+    URLSchema: {
+      /** Id */
+      id: string;
+      /** Domain */
+      domain: string;
+      /** Base Path */
+      base_path: string;
+      /** Strip Prefix */
+      strip_prefix: boolean;
+      /** Redirect To */
+      redirect_to: {
+        [key: string]: unknown;
+      } | null;
+      /** Associated Port */
+      associated_port: number | null;
     };
     /** UpdateProfileRequest */
     UpdateProfileRequest: {
@@ -252,6 +443,19 @@ export interface components {
       last_name: string;
       /** Is Superuser */
       is_superuser: boolean;
+    };
+    /** VolumeSchema */
+    VolumeSchema: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Mode */
+      mode: string;
+      /** Container Path */
+      container_path: string;
+      /** Host Path */
+      host_path: string | null;
     };
     ValidationErrorItem: {
       code: string;
@@ -658,6 +862,201 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["DockerImageSearchResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Create Docker Service */
+  create_docker_service_api_projects__project_slug___env_slug__create_service_docker__post: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DockerServiceCreateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["ServiceSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Service List */
+  service_list_api_projects__project_slug___env_slug__service_list__get: {
+    parameters: {
+      query?: {
+        query?: string | null;
+      };
+      path: {
+        project_slug: string;
+        env_slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ServiceCardSchema"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Get Service */
+  get_service_api_projects__project_slug___env_slug__service_details__slug___get: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ServiceSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Update Service */
+  update_service_api_projects__project_slug___env_slug__service_details__slug___patch: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ServiceUpdateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ServiceSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Request Service Changes */
+  request_service_changes_api_projects__project_slug___env_slug__request_service_changes__slug___put: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ServiceChangeRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ServiceSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Cancel Service Changes */
+  cancel_service_changes_api_projects__project_slug___env_slug__cancel_service_changes__slug___change_id___delete: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+        change_id: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
       };
       /** @description Validation Error */
       422: {
