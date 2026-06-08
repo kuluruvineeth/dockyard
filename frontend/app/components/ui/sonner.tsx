@@ -7,17 +7,19 @@ import {
   OctagonX,
   TriangleAlert
 } from "lucide-react";
-import { useTheme } from "next-themes";
 import { Toaster as Sonner } from "sonner";
+import { useTheme } from "~/components/theme-context";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
+const THEME_MAP = { LIGHT: "light", DARK: "dark", SYSTEM: "system" } as const;
+
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme();
+  const { theme } = useTheme();
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={THEME_MAP[theme]}
       className="toaster group"
       icons={{
         success: <CircleCheck className="h-4 w-4" />,

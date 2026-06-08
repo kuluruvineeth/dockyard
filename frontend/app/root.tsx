@@ -1,10 +1,17 @@
+import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import {
   QueryClient,
   QueryClientProvider,
   keepPreviousData
 } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import {
+  PersistQueryClientProvider,
+  removeOldestQuery
+} from "@tanstack/react-query-persist-client";
 import * as React from "react";
 import {
+  Link,
   Links,
   Meta,
   Outlet,
@@ -13,13 +20,29 @@ import {
   isRouteErrorResponse,
   useRouteError
 } from "react-router";
+import { Loader } from "~/components/loader";
+import { Logo } from "~/components/logo";
+import { TailwindIndicator } from "~/components/tailwind-indicator";
 import { ThemeProvider, getThemePreference } from "~/components/theme-context";
+import { Button } from "~/components/ui/button";
+import { Toaster } from "~/components/ui/sonner";
 import { THEME_STORAGE_KEY } from "~/lib/constants";
+import { durationToMs } from "~/utils";
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 
 export function links() {
   return [
+    {
+      rel: "icon",
+      href: "/logo/Dockyard-SYMBOL-BLACK.svg",
+      media: "(prefers-color-scheme: light)"
+    },
+    {
+      rel: "icon",
+      href: "/logo/Dockyard-SYMBOL-WHITE.svg",
+      media: "(prefers-color-scheme: dark)"
+    },
     { rel: "stylesheet", href: stylesheet }
   ] satisfies ReturnType<Route.LinksFunction>;
 }
@@ -33,6 +56,7 @@ export const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       placeholderData: keepPreviousData,
+      gcTime: durationToMs(3, "days"),
       retry(failureCount, error) {
         return !(error instanceof Response) && failureCount < 3;
       }
@@ -89,19 +113,48 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  if (import.meta.env.DEV) {
+    return (
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <Outlet />
+          <Toaster closeButton />
+          {!import.meta.env.VITE_HIDE_DEVTOOLS && (
+            <>
+              <ReactQueryDevtools />
+              <TailwindIndicator />
+            </>
+          )}
+        </QueryClientProvider>
+      </ThemeProvider>
+    );
+  }
+
+  const persister = createSyncStoragePersister({
+    storage: localStorage,
+    throttleTime: durationToMs(30, "seconds"),
+    retry: removeOldestQuery
+  });
+
   return (
     <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister,
+          maxAge: durationToMs(3, "days"),
+          buster: __BUILD_ID__
+        }}
+      >
         <Outlet />
-      </QueryClientProvider>
+        <Toaster />
+      </PersistQueryClientProvider>
     </ThemeProvider>
   );
 }
 
 export function HydrateFallback() {
-  return (
-    <div className="flex h-screen items-center justify-center">Loading…</div>
-  );
+  return <Loader />;
 }
 
 export function ErrorBoundary() {
@@ -137,15 +190,21 @@ export function ErrorBoundary() {
 
   return (
     <div className="flex flex-col gap-5 h-screen items-center justify-center px-5">
+      <Logo className="md:flex" />
       <div className="flex-col flex gap-3 items-center">
         <h1 className="text-3xl font-bold">{message}</h1>
         <p className="text-lg">{details}</p>
       </div>
+
       {stack ? (
         <pre className="w-full p-4 overflow-x-auto bg-red-400/20">
           <code>{stack}</code>
         </pre>
-      ) : null}
+      ) : (
+        <Link to="/">
+          <Button>Go home</Button>
+        </Link>
+      )}
     </div>
   );
 }
