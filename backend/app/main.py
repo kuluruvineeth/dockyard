@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.errors import register_error_handlers
+from app.routers import ping
 
 
 def create_app() -> FastAPI:
@@ -11,6 +12,7 @@ def create_app() -> FastAPI:
         docs_url="/api/docs",
     )
     register_error_handlers(app)
+    app.include_router(ping.router)
     return app
 
 

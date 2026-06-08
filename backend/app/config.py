@@ -41,6 +41,13 @@ class Settings(BaseSettings):
 
     @computed_field
     @property
+    def password_hash_rounds(self) -> int:
+        # bcrypt is meant to be slow. Under test that cost buys nothing and is
+        # paid on every fixture, so drop to the minimum the algorithm allows.
+        return 4 if self.testing else 12
+
+    @computed_field
+    @property
     def anon_throttle_rate(self) -> str:
         return "60/minute" if self.debug else "5/minute"
 
