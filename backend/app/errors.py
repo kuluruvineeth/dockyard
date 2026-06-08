@@ -101,6 +101,17 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     )
 
 
+_PYDANTIC_CODE_MAP = {
+    "missing": "required",
+    "string_too_short": "min_length",
+    "string_too_long": "max_length",
+    "string_pattern_mismatch": "invalid",
+    "value_error": "invalid",
+    "string_type": "invalid",
+    "int_parsing": "invalid",
+}
+
+
 async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
@@ -108,9 +119,9 @@ async def validation_exception_handler(
     for err in exc.errors():
         loc = [str(p) for p in err["loc"] if p not in ("body", "query", "path")]
         attr = loc[-1] if loc else None
-        errors.append(
-            {"code": err.get("type", "invalid"), "detail": err["msg"], "attr": attr}
-        )
+        raw_code = err.get("type", "invalid")
+        code = _PYDANTIC_CODE_MAP.get(raw_code, raw_code)
+        errors.append({"code": code, "detail": err["msg"], "attr": attr})
     return _envelope(VALIDATION_ERROR, errors, status.HTTP_400_BAD_REQUEST)
 
 

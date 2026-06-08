@@ -6,20 +6,33 @@ from sqlalchemy import func, select
 
 from app.config import settings
 from app.dependencies import CurrentUser, DBSession
-from app.errors import AuthenticationFailed, PermissionDenied, ValidationException
+from app.errors import (
+    AuthenticationFailed,
+    PermissionDenied,
+    ResourceConflict,
+    ValidationException,
+)
 from app.middleware.csrf import ensure_csrf_cookie
 from app.models import User
 from app.schemas.auth import (
     AuthedResponse,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
     CSRFResponse,
     LoginRequest,
     LoginSuccessResponse,
+    UpdateProfileRequest,
     UserCreatedResponse,
     UserCreationRequest,
     UserExistenceResponse,
     UserSchema,
 )
-from app.security import authenticate, login, logout
+from app.security import (
+    authenticate,
+    login,
+    logout,
+    update_session_auth_hash,
+)
 from app.session import now
 from app.throttling import ScopedRateThrottle
 from app.validators import ValidationError as PasswordValidationError
@@ -120,3 +133,48 @@ async def create_initial_user(
     return JSONResponse(
         {"detail": "Created the first user successfully."}, status_code=201
     )
+
+
+@router.post("/api/auth/change-password", response_model=ChangePasswordResponse)
+async def change_password(
+    request: Request,
+    body: ChangePasswordRequest,
+    db: DBSession,
+    user: CurrentUser,
+):
+    if not user.check_password(body.current_password):
+        raise ValidationException(
+            "current_password", "invalid", "Current password is incorrect."
+        )
+    if body.new_password != body.confirm_password:
+        raise ValidationException(
+            "confirm_password", "invalid", "The passwords do not match."
+        )
+    try:
+        validate_new_password(body.new_password, user)
+    except PasswordValidationError as error:
+        raise ValidationException(
+            "new_password", error.code or "invalid", error.message
+        )
+
+    user.set_password(body.new_password)
+    await db.commit()
+    update_session_auth_hash(request, user)
+    return ChangePasswordResponse(success=True)
+
+
+@router.patch("/api/auth/update-profile", response_model=UserSchema)
+async def update_profile(body: UpdateProfileRequest, db: DBSession, user: CurrentUser):
+    if body.username is not None and body.username != user.username:
+        existing = await db.scalar(select(User).where(User.username == body.username))
+        if existing is not None:
+            raise ResourceConflict("A user with this username already exists.")
+        user.username = body.username
+    if body.first_name is not None:
+        user.first_name = body.first_name
+    if body.last_name is not None:
+        user.last_name = body.last_name
+
+    await db.commit()
+    await db.refresh(user)
+    return UserSchema.from_user(user)

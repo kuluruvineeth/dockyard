@@ -1,13 +1,23 @@
+import hashlib
+import hmac
 from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
+from app.config import settings
 from app.models import User
 from app.session import SESSION_COOKIE_AGE, now
 
 AUTH_USER_ID_KEY = "_auth_user_id"
+AUTH_HASH_KEY = "_auth_user_hash"
+
+
+def session_auth_hash(user: User) -> str:
+    return hmac.new(
+        settings.secret_key.encode(), user.password.encode(), hashlib.sha256
+    ).hexdigest()
 
 
 async def authenticate(db: AsyncSession, username: str, password: str) -> User | None:
@@ -24,6 +34,7 @@ def login(request: Request, user: User) -> None:
     session = request.state.session
     session.cycle_key()
     session[AUTH_USER_ID_KEY] = user.id
+    session[AUTH_HASH_KEY] = session_auth_hash(user)
     session.set_expiry(now() + timedelta(seconds=SESSION_COOKIE_AGE))
     request.state.user = user
 
@@ -33,4 +44,4 @@ def logout(request: Request) -> None:
 
 
 def update_session_auth_hash(request: Request, user: User) -> None:
-    request.state.session.modified = True
+    request.state.session[AUTH_HASH_KEY] = session_auth_hash(user)

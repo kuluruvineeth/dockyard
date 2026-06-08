@@ -48,3 +48,21 @@ class UserCreationRequest(BaseModel):
 
 class UserCreatedResponse(BaseModel):
     detail: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8)
+    confirm_password: str = Field(min_length=1)
+
+
+class ChangePasswordResponse(BaseModel):
+    success: bool
+
+
+class UpdateProfileRequest(BaseModel):
+    username: str | None = Field(
+        default=None, min_length=1, max_length=150, pattern=r"^[\w.@+-]+$"
+    )
+    first_name: str | None = None
+    last_name: str | None = None

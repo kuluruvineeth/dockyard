@@ -1,6 +1,10 @@
 from datetime import timedelta
 from unittest.mock import patch
 
+from httpx import ASGITransport, AsyncClient
+
+from app.main import app
+from app.models import User
 from app.session import now as real_now
 
 
@@ -107,6 +111,156 @@ class TestUserExistenceAndCreation:
         assert response.status_code == 201
         response = await client.get("/api/auth/me")
         assert response.status_code == 200
+
+
+class TestChangePasswordView:
+    _payload = {
+        "current_password": "password",
+        "new_password": "newpassword123",
+        "confirm_password": "newpassword123",
+    }
+
+    async def test_successful_password_change(self, auth_client):
+        response = await auth_client.post(
+            "/api/auth/change-password", json=self._payload
+        )
+        assert response.status_code == 200
+        assert (await auth_client.get("/api/auth/me")).status_code == 200
+
+    async def test_requires_authentication(self, client):
+        response = await client.post("/api/auth/change-password", json=self._payload)
+        assert response.status_code == 401
+
+    async def test_invalid_current_password(self, auth_client):
+        response = await auth_client.post(
+            "/api/auth/change-password",
+            json={**self._payload, "current_password": "wrongpassword"},
+        )
+        assert response.status_code == 400
+        error = response.json()["errors"][0]
+        assert error["attr"] == "current_password"
+        assert error["code"] == "invalid"
+
+    async def test_mismatched_confirmation(self, auth_client):
+        response = await auth_client.post(
+            "/api/auth/change-password",
+            json={**self._payload, "confirm_password": "differentpassword123"},
+        )
+        assert response.status_code == 400
+        assert response.json()["errors"][0]["attr"] == "confirm_password"
+
+    async def test_weak_password(self, auth_client):
+        response = await auth_client.post(
+            "/api/auth/change-password",
+            json={
+                "current_password": "password",
+                "new_password": "123",
+                "confirm_password": "123",
+            },
+        )
+        assert response.status_code == 400
+        error = response.json()["errors"][0]
+        assert error["attr"] == "new_password"
+        assert error["code"] == "min_length"
+
+    async def test_common_password(self, auth_client):
+        response = await auth_client.post(
+            "/api/auth/change-password",
+            json={
+                "current_password": "password",
+                "new_password": "password123",
+                "confirm_password": "password123",
+            },
+        )
+        assert response.status_code == 400
+        assert response.json()["errors"][0]["attr"] == "new_password"
+
+    async def test_numeric_only_password(self, auth_client):
+        response = await auth_client.post(
+            "/api/auth/change-password",
+            json={
+                "current_password": "password",
+                "new_password": "889955113366",
+                "confirm_password": "889955113366",
+            },
+        )
+        assert response.status_code == 400
+        error = response.json()["errors"][0]
+        assert error["attr"] == "new_password"
+        assert error["code"] == "password_entirely_numeric"
+
+    async def test_missing_fields(self, auth_client):
+        response = await auth_client.post("/api/auth/change-password", json={})
+        assert response.status_code == 400
+        error = response.json()["errors"][0]
+        assert error["code"] == "required"
+        assert error["attr"] == "current_password"
+
+    async def test_invalidates_other_sessions(self, auth_client, user):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client2:
+            assert (
+                await client2.post(
+                    "/api/auth/login",
+                    json={"username": "kuluruvineeth", "password": "password"},
+                )
+            ).status_code == 201
+
+            assert (
+                await auth_client.post("/api/auth/change-password", json=self._payload)
+            ).status_code == 200
+
+            assert (await auth_client.get("/api/auth/me")).status_code == 200
+            assert (await client2.get("/api/auth/me")).status_code == 401
+
+
+class TestUpdateProfileView:
+    async def test_successful_profile_update(self, auth_client):
+        response = await auth_client.patch(
+            "/api/auth/update-profile",
+            json={"username": "newusername", "first_name": "John", "last_name": "Doe"},
+        )
+        assert response.status_code == 200
+        assert response.json()["username"] == "newusername"
+
+    async def test_requires_authentication(self, client):
+        response = await client.patch(
+            "/api/auth/update-profile", json={"username": "newusername"}
+        )
+        assert response.status_code == 401
+
+    async def test_duplicate_username(self, auth_client, session):
+        other = User(username="existinguser", is_active=True)
+        other.set_password("password123")
+        session.add(other)
+        await session.commit()
+
+        response = await auth_client.patch(
+            "/api/auth/update-profile", json={"username": "existinguser"}
+        )
+        assert response.status_code == 409
+
+    async def test_invalid_username_format(self, auth_client):
+        response = await auth_client.patch(
+            "/api/auth/update-profile", json={"username": "fred kiss3"}
+        )
+        assert response.status_code == 400
+        error = response.json()["errors"][0]
+        assert error["code"] == "invalid"
+        assert error["attr"] == "username"
+
+    async def test_same_username_allowed(self, auth_client):
+        response = await auth_client.patch(
+            "/api/auth/update-profile", json={"username": "kuluruvineeth"}
+        )
+        assert response.status_code == 200
+
+    async def test_partial_data(self, auth_client):
+        response = await auth_client.patch(
+            "/api/auth/update-profile", json={"first_name": "John"}
+        )
+        assert response.status_code == 200
+        assert response.json()["first_name"] == "John"
 
 
 class TestAuthMeView:
