@@ -49,6 +49,22 @@ export interface paths {
     /** Get Server Resource Limits View */
     get: operations["get_server_resource_limits_view_api_server_resource_limits_get"];
   };
+  "/api/projects/": {
+    /** List Projects */
+    get: operations["list_projects_api_projects__get"];
+    /** Create Project */
+    post: operations["create_project_api_projects__post"];
+  };
+  "/api/projects/{slug}/": {
+    /** Get Project */
+    get: operations["get_project_api_projects__slug___get"];
+    /** Update Project */
+    put: operations["update_project_api_projects__slug___put"];
+  };
+  "/api/docker/image-search/": {
+    /** Image Search */
+    get: operations["image_search_api_docker_image_search__get"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -80,6 +96,18 @@ export interface components {
       /** Success */
       success: boolean;
     };
+    /** DockerImageResult */
+    DockerImageResult: {
+      /** Full Image */
+      full_image: string;
+      /** Description */
+      description: string;
+    };
+    /** DockerImageSearchResponse */
+    DockerImageSearchResponse: {
+      /** Images */
+      images: components["schemas"]["DockerImageResult"][];
+    };
     /** LoginRequest */
     LoginRequest: {
       /** Username */
@@ -101,6 +129,61 @@ export interface components {
        */
       ping?: "pong";
     };
+    /** ProjectCreateRequest */
+    ProjectCreateRequest: {
+      /** Slug */
+      slug?: string | null;
+      /** Description */
+      description?: string | null;
+    };
+    /** ProjectSchema */
+    ProjectSchema: {
+      /** Id */
+      id: string;
+      /** Slug */
+      slug: string;
+      /** Description */
+      description: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Environments */
+      environments: components["schemas"]["SimpleEnvironmentSchema"][];
+      /**
+       * Healthy Services
+       * @default 0
+       */
+      healthy_services?: number;
+      /**
+       * Total Services
+       * @default 0
+       */
+      total_services?: number;
+      /**
+       * Healthy Stack Services
+       * @default 0
+       */
+      healthy_stack_services?: number;
+      /**
+       * Total Stack Services
+       * @default 0
+       */
+      total_stack_services?: number;
+    };
+    /** ProjectUpdateRequest */
+    ProjectUpdateRequest: {
+      /** Slug */
+      slug?: string | null;
+      /** Description */
+      description?: string | null;
+    };
     /** ResourceLimitResponse */
     ResourceLimitResponse: {
       /** No Of Cpus */
@@ -118,6 +201,20 @@ export interface components {
       image_version: string;
       /** Commit Sha */
       commit_sha: string | null;
+    };
+    /** SimpleEnvironmentSchema */
+    SimpleEnvironmentSchema: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Is Preview */
+      is_preview: boolean;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
     };
     /** UpdateProfileRequest */
     UpdateProfileRequest: {
@@ -420,6 +517,152 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["ResourceLimitResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** List Projects */
+  list_projects_api_projects__get: {
+    parameters: {
+      query?: {
+        slug?: string | null;
+        sort_by?: string | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ProjectSchema"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Create Project */
+  create_project_api_projects__post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProjectCreateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["ProjectSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Get Project */
+  get_project_api_projects__slug___get: {
+    parameters: {
+      path: {
+        slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ProjectSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Update Project */
+  update_project_api_projects__slug___put: {
+    parameters: {
+      path: {
+        slug: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProjectUpdateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ProjectSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Image Search */
+  image_search_api_docker_image_search__get: {
+    parameters: {
+      query?: {
+        q?: string | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DockerImageSearchResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
         };
       };
       /** @description Error */

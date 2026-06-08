@@ -1,6 +1,35 @@
 import { queryOptions } from "@tanstack/react-query";
 import { apiClient } from "~/api/client";
+import { notFound } from "~/lib/utils";
 import { durationToMs } from "~/utils";
+
+export const projectQueries = {
+  list: (slug?: string) =>
+    queryOptions({
+      queryKey: ["PROJECT_LIST", slug ?? ""] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await apiClient.GET("/api/projects/", {
+          params: { query: slug ? { slug } : {} },
+          signal
+        });
+        return data ?? [];
+      }
+    }),
+  single: (slug: string) =>
+    queryOptions({
+      queryKey: ["PROJECT", slug] as const,
+      queryFn: async ({ signal }) => {
+        const { data, error } = await apiClient.GET("/api/projects/{slug}/", {
+          params: { path: { slug } },
+          signal
+        });
+        if (error) {
+          throw notFound(`Project \`${slug}\` not found`);
+        }
+        return data;
+      }
+    })
+};
 
 export const userQueries = {
   authedUser: queryOptions({

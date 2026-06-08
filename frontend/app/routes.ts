@@ -9,5 +9,8 @@ export default [
   route("login", "./routes/login.tsx"),
   route("logout", "./routes/logout.tsx"),
   route("onboarding", "./routes/onboarding.tsx"),
-  layout("./routes/dashboard-layout.tsx", [index("./routes/home.tsx")])
+  layout("./routes/dashboard-layout.tsx", [
+    index("./routes/home.tsx"),
+    route("create-project", "./routes/projects/create-project.tsx")
+  ])
 ] satisfies RouteConfig;

@@ -229,6 +229,164 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/projects/:
+    get:
+      summary: List Projects
+      operationId: list_projects_api_projects__get
+      parameters:
+      - name: slug
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Slug
+      - name: sort_by
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sort By
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectSchema'
+                title: Response List Projects Api Projects  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+    post:
+      summary: Create Project
+      operationId: create_project_api_projects__post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+  /api/projects/{slug}/:
+    get:
+      summary: Get Project
+      operationId: get_project_api_projects__slug___get
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+    put:
+      summary: Update Project
+      operationId: update_project_api_projects__slug___put
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+  /api/docker/image-search/:
+    get:
+      summary: Image Search
+      operationId: image_search_api_docker_image_search__get
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Q
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DockerImageSearchResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
 components:
   schemas:
     AuthedResponse:
@@ -280,6 +438,30 @@ components:
       required:
       - success
       title: ChangePasswordResponse
+    DockerImageResult:
+      properties:
+        full_image:
+          type: string
+          title: Full Image
+        description:
+          type: string
+          title: Description
+      type: object
+      required:
+      - full_image
+      - description
+      title: DockerImageResult
+    DockerImageSearchResponse:
+      properties:
+        images:
+          items:
+            $ref: '#/components/schemas/DockerImageResult'
+          type: array
+          title: Images
+      type: object
+      required:
+      - images
+      title: DockerImageSearchResponse
     LoginRequest:
       properties:
         username:
@@ -315,6 +497,89 @@ components:
           default: pong
       type: object
       title: PingResponse
+    ProjectCreateRequest:
+      properties:
+        slug:
+          anyOf:
+          - type: string
+            maxLength: 255
+            pattern: ^[-a-zA-Z0-9_]+$
+          - type: 'null'
+          title: Slug
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+      type: object
+      title: ProjectCreateRequest
+    ProjectSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        slug:
+          type: string
+          title: Slug
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        environments:
+          items:
+            $ref: '#/components/schemas/SimpleEnvironmentSchema'
+          type: array
+          title: Environments
+        healthy_services:
+          type: integer
+          title: Healthy Services
+          default: 0
+        total_services:
+          type: integer
+          title: Total Services
+          default: 0
+        healthy_stack_services:
+          type: integer
+          title: Healthy Stack Services
+          default: 0
+        total_stack_services:
+          type: integer
+          title: Total Stack Services
+          default: 0
+      type: object
+      required:
+      - id
+      - slug
+      - description
+      - created_at
+      - updated_at
+      - environments
+      title: ProjectSchema
+    ProjectUpdateRequest:
+      properties:
+        slug:
+          anyOf:
+          - type: string
+            maxLength: 255
+            pattern: ^[-a-zA-Z0-9_]+$
+          - type: 'null'
+          title: Slug
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+      type: object
+      title: ProjectUpdateRequest
     ResourceLimitResponse:
       properties:
         no_of_cpus:
@@ -351,6 +616,28 @@ components:
       - image_version
       - commit_sha
       title: SettingsResponse
+    SimpleEnvironmentSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        is_preview:
+          type: boolean
+          title: Is Preview
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - name
+      - is_preview
+      - created_at
+      title: SimpleEnvironmentSchema
     UpdateProfileRequest:
       properties:
         username:

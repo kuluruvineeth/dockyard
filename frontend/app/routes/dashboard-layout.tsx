@@ -1,15 +1,36 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   ChevronDownIcon,
+  FolderIcon,
   LaptopMinimalIcon,
   LogOut,
   MoonIcon,
+  PlusIcon,
+  SearchIcon,
   SettingsIcon,
   SunIcon
 } from "lucide-react";
-import { Link, Outlet, redirect, useFetcher, useParams } from "react-router";
+import { useEffect, useState } from "react";
+import {
+  Link,
+  Outlet,
+  redirect,
+  useFetcher,
+  useNavigate,
+  useParams
+} from "react-router";
 import { ThemedLogo } from "~/components/logo";
 import { type Theme, useTheme } from "~/components/theme-context";
 import { Button } from "~/components/ui/button";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator
+} from "~/components/ui/command";
 import {
   Menubar,
   MenubarContent,
@@ -19,7 +40,7 @@ import {
   MenubarTrigger
 } from "~/components/ui/menubar";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
-import { userQueries } from "~/lib/queries";
+import { projectQueries, userQueries } from "~/lib/queries";
 import { queryClient } from "~/root";
 import { metaTitle } from "~/utils";
 import type { Route } from "./+types/dashboard-layout";
@@ -52,6 +73,81 @@ export default function DashboardLayout({ loaderData }: Route.ComponentProps) {
         <Outlet />
       </main>
     </div>
+  );
+}
+
+function CommandPalette() {
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const { data: projects } = useQuery({
+    ...projectQueries.list(),
+    enabled: open
+  });
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setOpen((value) => !value);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const go = (to: string) => {
+    setOpen(false);
+    navigate(to);
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="hidden h-8 items-center gap-6 border border-input bg-background px-2.5 text-sm text-grey transition-colors hover:border-foreground/25 hover:text-foreground md:flex"
+      >
+        <span className="flex items-center gap-1.5">
+          <SearchIcon size={14} strokeWidth={1.75} />
+          Search
+        </span>
+        <kbd className="font-mono text-[11px] text-grey">⌘K</kbd>
+      </button>
+      <CommandDialog open={open} onOpenChange={setOpen}>
+        <CommandInput placeholder="Jump to a project or action…" />
+        <CommandList>
+          <CommandEmpty>No results.</CommandEmpty>
+          {projects && projects.length > 0 && (
+            <CommandGroup heading="Projects">
+              {projects.map((project) => (
+                <CommandItem
+                  key={project.id}
+                  value={project.slug}
+                  onSelect={() => go(`/project/${project.slug}/production`)}
+                >
+                  <FolderIcon size={15} strokeWidth={1.75} />
+                  {project.slug}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+          <CommandSeparator />
+          <CommandGroup heading="Actions">
+            <CommandItem
+              value="new project"
+              onSelect={() => go("/create-project")}
+            >
+              <PlusIcon size={15} strokeWidth={1.75} />
+              New project
+            </CommandItem>
+            <CommandItem value="settings" onSelect={() => go("/settings")}>
+              <SettingsIcon size={15} strokeWidth={1.75} />
+              Settings
+            </CommandItem>
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
+    </>
   );
 }
 
@@ -92,6 +188,7 @@ function Header({ username }: { username: string }) {
         </div>
 
         <div className="flex flex-none items-center gap-1.5">
+          <CommandPalette />
           <ToggleGroup
             type="single"
             value={theme}
