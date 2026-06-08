@@ -77,6 +77,15 @@ export async function clientAction({
         host: Number(formData.get("host")),
         forwarded: Number(formData.get("forwarded"))
       };
+    } else if (changeField === "healthcheck") {
+      const port = formData.get("associated_port")?.toString();
+      newValue = {
+        type: formData.get("type")?.toString(),
+        value: formData.get("value")?.toString(),
+        timeout_seconds: Number(formData.get("timeout_seconds")) || 60,
+        interval_seconds: Number(formData.get("interval_seconds")) || 15,
+        associated_port: port ? Number(port) : undefined
+      };
     } else {
       const urlValue: Record<string, unknown> = {
         domain: formData.get("domain")?.toString(),
@@ -491,6 +500,87 @@ export default function ServiceDetail({
               })}
             </div>
             <NewEnvVariableForm actionData={actionData} isPending={isPending} />
+          </SectionCard>
+
+          <SectionCard
+            title="Healthcheck"
+            description="Determines when a deployment is considered healthy."
+          >
+            <Form method="POST" className="flex flex-col gap-4 px-5 py-5">
+              <input type="hidden" name="change_field" value="healthcheck" />
+              <input type="hidden" name="change_type" value="UPDATE" />
+
+              {changeErrors.new_value && (
+                <p className="text-sm text-destructive">
+                  {changeErrors.new_value.join(" ")}
+                </p>
+              )}
+
+              <div className="flex flex-col gap-4 md:flex-row">
+                <FieldSet className="inline-flex flex-col gap-1.5">
+                  <FieldSetLabel>Type</FieldSetLabel>
+                  <select
+                    name="type"
+                    defaultValue={service?.healthcheck?.type ?? "PATH"}
+                    className="h-10 border border-border bg-background px-3 text-sm transition-colors duration-150 hover:border-foreground/15 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/70"
+                  >
+                    <option value="PATH">Path</option>
+                    <option value="COMMAND">Command</option>
+                  </select>
+                </FieldSet>
+                <FieldSet
+                  required
+                  className="inline-flex flex-1 flex-col gap-1.5"
+                >
+                  <FieldSetLabel>Value</FieldSetLabel>
+                  <FieldSetInput
+                    name="value"
+                    className="font-mono"
+                    placeholder="ex: /health"
+                    defaultValue={service?.healthcheck?.value ?? ""}
+                    required
+                  />
+                </FieldSet>
+              </div>
+
+              <div className="flex flex-col gap-4 md:flex-row">
+                <FieldSet className="inline-flex flex-1 flex-col gap-1.5">
+                  <FieldSetLabel>
+                    Forwarded port (for path checks)
+                  </FieldSetLabel>
+                  <FieldSetInput
+                    name="associated_port"
+                    className="font-mono"
+                    placeholder="ex: 8080"
+                    defaultValue={service?.healthcheck?.associated_port ?? ""}
+                  />
+                </FieldSet>
+                <FieldSet className="inline-flex flex-col gap-1.5">
+                  <FieldSetLabel>Timeout (s)</FieldSetLabel>
+                  <FieldSetInput
+                    name="timeout_seconds"
+                    className="font-mono"
+                    defaultValue={service?.healthcheck?.timeout_seconds ?? 60}
+                  />
+                </FieldSet>
+                <FieldSet className="inline-flex flex-col gap-1.5">
+                  <FieldSetLabel>Interval (s)</FieldSetLabel>
+                  <FieldSetInput
+                    name="interval_seconds"
+                    className="font-mono"
+                    defaultValue={service?.healthcheck?.interval_seconds ?? 15}
+                  />
+                </FieldSet>
+              </div>
+
+              <SubmitButton
+                isPending={isPending}
+                variant="outline"
+                className="w-fit"
+              >
+                {isPending ? "Saving…" : "Save healthcheck"}
+              </SubmitButton>
+            </Form>
           </SectionCard>
         </div>
 

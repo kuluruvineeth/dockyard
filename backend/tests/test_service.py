@@ -198,6 +198,44 @@ class TestRequestServiceChanges:
         assert len(sources) == 1
         assert sources[0]["new_value"]["image"] == "nginx:latest"
 
+    async def test_request_command_change(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc")
+        response = await auth_client.put(
+            _changes_url(p, "svc"),
+            json={"field": "command", "type": "UPDATE", "new_value": "npm run start"},
+        )
+        assert response.status_code == 200
+        commands = [
+            c for c in response.json()["unapplied_changes"] if c["field"] == "command"
+        ]
+        assert len(commands) == 1
+        assert commands[0]["new_value"] == "npm run start"
+
+    async def test_request_healthcheck_change(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "svc")
+        response = await auth_client.put(
+            _changes_url(p, "svc"),
+            json={
+                "field": "healthcheck",
+                "type": "UPDATE",
+                "new_value": {
+                    "type": "PATH",
+                    "value": "/health",
+                    "associated_port": 8080,
+                },
+            },
+        )
+        assert response.status_code == 200
+        checks = [
+            c
+            for c in response.json()["unapplied_changes"]
+            if c["field"] == "healthcheck"
+        ]
+        assert len(checks) == 1
+        assert checks[0]["new_value"]["value"] == "/health"
+
     async def test_request_add_url(self, auth_client):
         p = await _make_project(auth_client)
         await _make_service(auth_client, p, "svc")
