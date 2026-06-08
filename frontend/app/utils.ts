@@ -1,3 +1,10 @@
+import { apiClient } from "~/api/client";
+
+export async function getCsrfTokenHeader() {
+  await apiClient.GET("/api/csrf");
+  return { "X-CSRFToken": getCookie("csrftoken") };
+}
+
 export function excerpt(text: string, maxLength: number): string {
   if (text.length <= maxLength) {
     return text;
