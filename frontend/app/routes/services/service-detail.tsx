@@ -61,14 +61,23 @@ export async function clientAction({
   const changeField = formData.get("change_field")?.toString();
 
   if (changeField) {
-    const newValue: Record<string, unknown> = {
-      domain: formData.get("domain")?.toString(),
-      base_path: formData.get("base_path")?.toString() || "/",
-      strip_prefix: formData.get("strip_prefix") === "on"
-    };
-    const port = formData.get("associated_port")?.toString();
-    if (port) {
-      newValue.associated_port = Number(port);
+    let newValue: unknown;
+    if (changeField === "env_variables") {
+      newValue = {
+        key: formData.get("key")?.toString(),
+        value: formData.get("value")?.toString() ?? ""
+      };
+    } else {
+      const urlValue: Record<string, unknown> = {
+        domain: formData.get("domain")?.toString(),
+        base_path: formData.get("base_path")?.toString() || "/",
+        strip_prefix: formData.get("strip_prefix") === "on"
+      };
+      const port = formData.get("associated_port")?.toString();
+      if (port) {
+        urlValue.associated_port = Number(port);
+      }
+      newValue = urlValue;
     }
 
     const { error } = await apiClient.PUT(
@@ -175,7 +184,7 @@ function ServiceDetailSkeleton() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="order-last flex flex-col gap-6 lg:order-first">
-          {Array.from({ length: 2 }).map((_, i) => (
+          {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="border border-border bg-card">
               <div className="flex flex-col gap-2 border-b border-border/60 px-5 py-4">
                 <div className="h-4 w-36 bg-muted" />
@@ -236,6 +245,10 @@ export default function ServiceDetail({
   const appliedUrls = service?.urls ?? [];
   const pendingUrls = (service?.unapplied_changes ?? []).filter(
     (c) => c.field === "urls" && c.type === "ADD"
+  );
+  const appliedEnv = service?.env_variables ?? [];
+  const pendingEnv = (service?.unapplied_changes ?? []).filter(
+    (c) => c.field === "env_variables" && c.type === "ADD"
   );
   const pendingCount = service?.unapplied_changes.length ?? 0;
 
@@ -338,6 +351,42 @@ export default function ServiceDetail({
             </div>
             <NewServiceURLForm actionData={actionData} isPending={isPending} />
           </SectionCard>
+
+          <SectionCard
+            title="Environment variables"
+            description="Injected into the service at deploy time."
+          >
+            <div className="divide-y divide-border/60">
+              {appliedEnv.length === 0 && pendingEnv.length === 0 && (
+                <EmptyState>
+                  No variables yet. Add a key and value below.
+                </EmptyState>
+              )}
+              {appliedEnv.map((env) => (
+                <div
+                  key={env.id}
+                  className="flex items-center gap-2 px-5 py-3 font-mono text-sm transition-colors duration-150 hover:bg-muted/40"
+                >
+                  <span className="flex-none">{env.key}</span>
+                  <span className="text-grey">=</span>
+                  <span className="truncate text-grey">{env.value}</span>
+                </div>
+              ))}
+              {pendingEnv.map((change) => {
+                const value = change.new_value as {
+                  key?: string;
+                  value?: string;
+                };
+                return (
+                  <PendingRow key={change.id}>
+                    {value.key} <span className="text-grey">=</span>{" "}
+                    <span className="text-grey">{value.value}</span>
+                  </PendingRow>
+                );
+              })}
+            </div>
+            <NewEnvVariableForm actionData={actionData} isPending={isPending} />
+          </SectionCard>
         </div>
 
         <aside className="order-first flex flex-col gap-4 lg:order-last lg:sticky lg:top-20 lg:self-start">
@@ -399,6 +448,54 @@ export default function ServiceDetail({
         </aside>
       </div>
     </section>
+  );
+}
+
+function NewEnvVariableForm({
+  actionData,
+  isPending
+}: {
+  actionData: Route.ComponentProps["actionData"];
+  isPending: boolean;
+}) {
+  const errors = getFormErrorsFromResponseData(
+    actionData && "changeError" in actionData
+      ? actionData.changeError
+      : undefined
+  );
+
+  return (
+    <Form method="POST" className={SECTION_FOOTER}>
+      <input type="hidden" name="change_field" value="env_variables" />
+      <input type="hidden" name="change_type" value="ADD" />
+
+      {errors.new_value && (
+        <p className="text-sm text-destructive">{errors.new_value.join(" ")}</p>
+      )}
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-end">
+        <FieldSet required className="inline-flex flex-1 flex-col gap-1.5">
+          <FieldSetLabel>Name</FieldSetLabel>
+          <FieldSetInput
+            name="key"
+            placeholder="VARIABLE_NAME"
+            className="font-mono"
+            required
+          />
+        </FieldSet>
+        <FieldSet className="inline-flex flex-1 flex-col gap-1.5">
+          <FieldSetLabel>Value</FieldSetLabel>
+          <FieldSetInput
+            name="value"
+            placeholder="value"
+            className="font-mono"
+          />
+        </FieldSet>
+        <SubmitButton isPending={isPending} variant="outline" className="w-fit">
+          {isPending ? "Adding…" : "Add"}
+        </SubmitButton>
+      </div>
+    </Form>
   );
 }
 
