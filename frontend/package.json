@@ -19,6 +19,7 @@
     "@tanstack/react-query-persist-client": "^5.101.0",
     "clsx": "^2.1.1",
     "isbot": "^5.1.17",
+    "openapi-fetch": "^0.17.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router": "^7.17.0",
