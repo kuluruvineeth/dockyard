@@ -35,6 +35,79 @@ class TestAuthLoginView:
         response = await client.post("/api/auth/login", json={})
         assert response.status_code == 400
 
+    async def test_login_ratelimit(self, client):
+        response = None
+        for _ in range(6):
+            response = await client.post("/api/auth/login", json={})
+        assert response.status_code == 429
+
+
+class TestUserExistenceAndCreation:
+    async def test_check_user_existence_no_user(self, client):
+        response = await client.get("/api/auth/check-user-existence")
+        assert response.status_code == 200
+        assert response.json().get("exists") is False
+
+    async def test_check_user_existence_with_user(self, client, user):
+        response = await client.get("/api/auth/check-user-existence")
+        assert response.status_code == 200
+        assert response.json().get("exists") is True
+
+    async def test_create_user_success(self, client):
+        response = await client.post(
+            "/api/auth/create-initial-user",
+            json={"username": "mohai", "password": "mohai123"},
+        )
+        assert response.status_code == 201
+        assert response.cookies.get("sessionid") is not None
+
+    async def test_create_user_already_exists(self, client, user):
+        response = await client.post(
+            "/api/auth/create-initial-user",
+            json={"username": "fred", "password": "fred12345"},
+        )
+        assert response.status_code == 403
+
+    async def test_create_user_bad_request(self, client):
+        response = await client.post("/api/auth/create-initial-user", json={})
+        assert response.status_code == 400
+
+    async def test_create_user_weak_password(self, client):
+        bad_passwords = [
+            "123",
+            "12345678",
+            "admin123",
+            "password123",
+            "qwerty123",
+            "ALLUPPERCASE",
+            "alllowercase",
+            "!@#$%^#$%^&*(-)",
+        ]
+        for index, password in enumerate(bad_passwords):
+            response = await client.post(
+                "/api/auth/create-initial-user",
+                json={"username": f"fred{index}", "password": password},
+            )
+            assert response.status_code == 400
+            error = response.json().get("errors", [])[0]
+            assert error.get("attr") == "password"
+
+    async def test_create_user_invalid_username(self, client):
+        response = await client.post(
+            "/api/auth/create-initial-user",
+            json={"username": "invalid-user name", "password": "validpassword123"},
+        )
+        assert response.status_code == 400
+
+    async def test_create_user_should_authenticate_user(self, client):
+        response = await client.post(
+            "/api/auth/create-initial-user",
+            json={"username": "mocherif", "password": "validpassword123"},
+        )
+        assert response.status_code == 201
+        response = await client.get("/api/auth/me")
+        assert response.status_code == 200
+
 
 class TestAuthMeView:
     async def test_authed(self, auth_client):

@@ -35,3 +35,16 @@ class AuthedResponse(BaseModel):
 
 class CSRFResponse(BaseModel):
     details: str
+
+
+class UserExistenceResponse(BaseModel):
+    exists: bool
+
+
+class UserCreationRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=150, pattern=r"^[\w.@+-]+$")
+    password: str = Field(min_length=8)
+
+
+class UserCreatedResponse(BaseModel):
+    detail: str

@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def anon_throttle_rate(self) -> str:
+        if self.testing:
+            return "5/minute"
         return "60/minute" if self.debug else "5/minute"
 
     @computed_field

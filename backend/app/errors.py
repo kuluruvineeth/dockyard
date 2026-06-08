@@ -64,6 +64,15 @@ class ThrottledExceptionWithWaitTime(APIException):
         super().__init__(detail=detail)
 
 
+class ValidationException(Exception):
+    status_code = status.HTTP_400_BAD_REQUEST
+
+    def __init__(self, attr: str | None, code: str, detail: str):
+        self.attr = attr
+        self.code = code
+        self.detail = detail
+
+
 def _envelope(type_: str, errors: list[dict], status_code: int) -> JSONResponse:
     return JSONResponse(
         status_code=status_code, content={"type": type_, "errors": errors}
@@ -105,7 +114,18 @@ async def validation_exception_handler(
     return _envelope(VALIDATION_ERROR, errors, status.HTTP_400_BAD_REQUEST)
 
 
+async def validation_field_exception_handler(
+    request: Request, exc: ValidationException
+) -> JSONResponse:
+    return _envelope(
+        VALIDATION_ERROR,
+        [{"code": exc.code, "detail": exc.detail, "attr": exc.attr}],
+        exc.status_code,
+    )
+
+
 def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(APIException, api_exception_handler)
+    app.add_exception_handler(ValidationException, validation_field_exception_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)

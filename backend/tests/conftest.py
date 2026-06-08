@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import db as db_module
 from app import session as session_module
+from app import throttling as throttling_module
 from app.main import app
 from app.models import Base, User
 
@@ -14,8 +15,10 @@ TEST_DATABASE_URL = "sqlite+aiosqlite:///./dockyard_test.sqlite3"
 @pytest.fixture(autouse=True)
 def _clear_sessions():
     session_module.MemorySessionStore._store.clear()
+    throttling_module._history.clear()
     yield
     session_module.MemorySessionStore._store.clear()
+    throttling_module._history.clear()
 
 
 @pytest_asyncio.fixture
