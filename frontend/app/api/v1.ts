@@ -79,6 +79,10 @@ export interface paths {
     /** Update Service */
     patch: operations["update_service_api_projects__project_slug___env_slug__service_details__slug___patch"];
   };
+  "/api/projects/{project_slug}/{env_slug}/deploy-service/docker/{slug}/": {
+    /** Deploy Docker Service View */
+    put: operations["deploy_docker_service_view_api_projects__project_slug___env_slug__deploy_service_docker__slug___put"];
+  };
   "/api/projects/{project_slug}/{env_slug}/request-service-changes/{slug}/": {
     /** Request Service Changes */
     put: operations["request_service_changes_api_projects__project_slug___env_slug__request_service_changes__slug___put"];
@@ -149,6 +153,30 @@ export interface components {
       language: string;
       /** Version */
       version: number;
+    };
+    /** DeploymentSchema */
+    DeploymentSchema: {
+      /** Id */
+      id: string;
+      /** Status */
+      status: string;
+      /** Status Reason */
+      status_reason: string | null;
+      /** Slot */
+      slot: string;
+      /** Is Current Production */
+      is_current_production: boolean;
+      /** Commit Message */
+      commit_message: string;
+      /**
+       * Queued At
+       * Format: date-time
+       */
+      queued_at: string;
+      /** Started At */
+      started_at: string | null;
+      /** Finished At */
+      finished_at: string | null;
     };
     /** DockerImageResult */
     DockerImageResult: {
@@ -992,6 +1020,36 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["ServiceSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Deploy Docker Service View */
+  deploy_docker_service_view_api_projects__project_slug___env_slug__deploy_service_docker__slug___put: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DeploymentSchema"];
         };
       };
       /** @description Validation Error */

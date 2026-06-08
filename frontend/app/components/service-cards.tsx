@@ -1,12 +1,27 @@
 import { BoxIcon, GitBranchIcon, HardDriveIcon, LinkIcon } from "lucide-react";
 import { Link } from "react-router";
 import type { ApiResponse } from "~/api/client";
-import { StatusBadge } from "~/components/status-badge";
+import { StatusBadge, type StatusBadgeColor } from "~/components/status-badge";
 
 type ServiceCard = ApiResponse<
   "get",
   "/api/projects/{project_slug}/{env_slug}/service-list/"
 >[number];
+
+const STATUS_DISPLAY: Record<
+  string,
+  { color: StatusBadgeColor; label: string }
+> = {
+  HEALTHY: { color: "green", label: "Healthy" },
+  UNHEALTHY: { color: "red", label: "Unhealthy" },
+  FAILED: { color: "red", label: "Failed" },
+  STARTING: { color: "blue", label: "Starting" },
+  BUILDING: { color: "blue", label: "Building" },
+  PREPARING: { color: "blue", label: "Preparing" },
+  QUEUED: { color: "yellow", label: "Queued" },
+  SLEEPING: { color: "gray", label: "Sleeping" },
+  NOT_DEPLOYED_YET: { color: "gray", label: "Not deployed yet" }
+};
 
 function formatRelativeTime(iso: string): string {
   const then = new Date(iso).getTime();
@@ -40,6 +55,10 @@ export function DockerServiceCard({
   envSlug: string;
 }) {
   const tag = card.tag ? `:${card.tag}` : "";
+  const display = STATUS_DISPLAY[card.status] ?? {
+    color: "gray" as StatusBadgeColor,
+    label: card.status
+  };
   const isGit = card.type === "git";
   const TypeIcon = isGit ? GitBranchIcon : BoxIcon;
   const lastDeploy = formatRelativeTime(card.updated_at);
@@ -74,8 +93,11 @@ export function DockerServiceCard({
         <span className="hidden md:block" aria-hidden />
       )}
 
-      <StatusBadge color="gray" pingState="hidden">
-        Not deployed yet
+      <StatusBadge
+        color={display.color}
+        pingState={card.status === "NOT_DEPLOYED_YET" ? "hidden" : "static"}
+      >
+        {display.label}
       </StatusBadge>
 
       <span className="hidden items-center gap-3 font-mono text-xs tabular-nums text-muted-foreground lg:flex">

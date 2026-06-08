@@ -77,6 +77,56 @@ export const environmentQueries = {
     })
 };
 
+// A deployment that is still moving. While any of these is the newest one,
+// the page polls, because the whole point of watching a deploy is watching it
+// change — otherwise the UI sits on "Queued" for the length of a build.
+const IN_FLIGHT_STATUSES = [
+  "QUEUED",
+  "PREPARING",
+  "BUILDING",
+  "STARTING",
+  "RESTARTING",
+  "CANCELLING"
+];
+
+const POLL_WHILE_DEPLOYING = 2000;
+
+function pollWhileInFlight(statuses: Array<string | undefined>) {
+  return statuses.some((s) => s && IN_FLIGHT_STATUSES.includes(s))
+    ? POLL_WHILE_DEPLOYING
+    : false;
+}
+
+export const serviceQueries = {
+  single: (projectSlug: string, envSlug: string, slug: string) =>
+    queryOptions({
+      queryKey: ["SERVICE", projectSlug, envSlug, slug] as const,
+      queryFn: async ({ signal }) => {
+        const { data, error } = await apiClient.GET(
+          "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/",
+          {
+            params: {
+              path: {
+                project_slug: projectSlug,
+                env_slug: envSlug,
+                slug
+              }
+            },
+            signal
+          }
+        );
+        if (error) {
+          throw notFound(`Service \`${slug}\` not found`);
+        }
+        return data;
+      },
+      refetchInterval: (query) =>
+        pollWhileInFlight([
+          (query.state.data as { status?: string } | undefined)?.status
+        ])
+    })
+};
+
 export const dockerHubQueries = {
   images: (query: string) =>
     queryOptions({

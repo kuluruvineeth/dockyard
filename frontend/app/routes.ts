@@ -19,6 +19,10 @@ export default [
     route(
       "project/:projectSlug/:envSlug/create-service/docker",
       "./routes/services/create-docker-service.tsx"
+    ),
+    route(
+      "project/:projectSlug/:envSlug/services/:slug",
+      "./routes/services/service-detail.tsx"
     )
   ])
 ] satisfies RouteConfig;
