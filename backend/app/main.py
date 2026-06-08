@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 
 from app.errors import register_error_handlers
-from app.routers import ping
+from app.middleware.csrf import CSRFMiddleware
+from app.middleware.session import SessionMiddleware
+from app.routers import auth, ping
 
 
 def create_app() -> FastAPI:
@@ -12,7 +14,10 @@ def create_app() -> FastAPI:
         docs_url="/api/docs",
     )
     register_error_handlers(app)
+    app.add_middleware(SessionMiddleware)
+    app.add_middleware(CSRFMiddleware)
     app.include_router(ping.router)
+    app.include_router(auth.router)
     return app
 
 
