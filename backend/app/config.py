@@ -20,6 +20,12 @@ class Settings(BaseSettings):
 
     root_domain: str = Field(default="127-0-0-1.sslip.io", alias="ROOT_DOMAIN")
     app_domain: str = Field(default="127-0-0-1.sslip.io", alias="DOCKYARD_APP_DOMAIN")
+    internal_domain: str = Field(
+        default="dockyard.internal", alias="DOCKYARD_INTERNAL_DOMAIN"
+    )
+    caddy_proxy_admin_host: str = Field(
+        default="http://127.0.0.1:2019", alias="CADDY_PROXY_ADMIN_HOST"
+    )
 
     db_name: str = Field(default="dockyard", alias="DB_NAME")
     db_user: str = Field(default="postgres", alias="DB_USER")
