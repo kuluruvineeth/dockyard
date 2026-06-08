@@ -1,4 +1,8 @@
 {
-  "name": "docker",
-  "private": true
+  "name": "@dockyard/docker",
+  "version": "0.0.0",
+  "scripts": {
+    "predev": "chmod a+x ./start-docker-stack.sh && chmod a+x ./stop-docker-stack.sh",
+    "dev": "./start-docker-stack.sh"
+  }
 }

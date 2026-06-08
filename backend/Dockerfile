@@ -1,0 +1,41 @@
+FROM python:3.13.2-slim
+
+ENV NIXPACKS_VERSION=1.39.0
+ENV RAILPACK_VERSION=0.6.0
+
+RUN apt update && apt install -y git \
+    gcc \
+    python3-dev \
+    curl \
+    htop \
+    openssh-client \
+    iproute2 \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl -sSL https://nixpacks.com/install.sh | bash
+RUN curl -fsSL https://get.docker.com | sh
+RUN curl -sSL https://railpack.com/install.sh | sh
+
+# set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+WORKDIR /code
+
+COPY --from=ghcr.io/astral-sh/uv:0.7.3 /uv /usr/local/bin/uv
+ENV UV_SYSTEM_PYTHON=true VIRTUAL_ENV=/opt/.venv
+
+# Place executables in the environment at the front of the path
+ENV PATH="/opt/.venv/bin:$PATH"
+
+COPY pyproject.toml .python-version uv.lock README.md ./
+
+RUN uv sync --locked --active
+
+RUN . $VIRTUAL_ENV/bin/activate
+
+COPY . code
+
+EXPOSE 8000
+
+# runs the dev server
+CMD bash -c "source /opt/.venv/bin/activate && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"

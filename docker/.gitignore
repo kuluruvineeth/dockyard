@@ -1,0 +1,6 @@
+registry/data/
+.proxy_attached_networks
+.alive_services
+proxy/*.bak
+.fluentd/
+temporalio/archival/*

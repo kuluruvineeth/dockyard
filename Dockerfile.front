@@ -1,0 +1,10 @@
+# Webapp based on caddy
+FROM caddy:2.8-alpine
+
+WORKDIR /var/www/html
+
+
+RUN apk update && apk add --no-cache curl
+
+COPY ./frontend/build/client .
+COPY ./frontend/Caddyfile /etc/caddy/Caddyfile

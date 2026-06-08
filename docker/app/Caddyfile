@@ -1,0 +1,19 @@
+:80 {
+	log
+	header X-Robots-Tag "noindex"
+
+	@api {
+		path /api/*
+		path /ws/*
+	}
+
+	handle @api {
+		reverse_proxy unix//app/uvicorn/uvicorn.sock
+	}
+
+	handle {
+		root * /app/staticfiles
+		file_server
+		try_files {path} /index.html
+	}
+}

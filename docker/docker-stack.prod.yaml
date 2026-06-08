@@ -1,0 +1,454 @@
+x-backend-vars: &env-vars
+  ENVIRONMENT: PRODUCTION
+  REDIS_URL: redis://dky.valkey:6379/0
+  DB_HOST: dky.pgbouncer
+  DB_PORT: 5432
+  DB_NAME: dockyard
+  DB_USER: ${DOCKYARD_DB_USER:-dockyard}
+  DB_PASSWORD: ${DOCKYARD_DB_PASSWORD}
+  ROOT_DOMAIN: ${ROOT_DOMAIN}
+  DOCKYARD_APP_DOMAIN: ${DOCKYARD_APP_DOMAIN}
+  DOCKYARD_SECRET_KEY: ${DOCKYARD_SECRET_KEY}
+  CADDY_PROXY_ADMIN_HOST: http://dky.proxy:2019
+  DOCKYARD_FLUENTD_HOST: unix://${DOCKYARD_APP_DIRECTORY:-/var/www/dockyard}/.fluentd/fluentd.sock
+  TEMPORALIO_SERVER_URL: dky.temporal:7233
+  __DANGEROUS_ALLOW_HTTP_SESSION: ${__DANGEROUS_ALLOW_HTTP_SESSION:-false}
+  LOKI_HOST: http://dky.loki:3100
+  UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+  TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-true}
+  MAX_CONCURRENT_DEPLOYS: ${MAX_CONCURRENT_DEPLOYS:-5}
+  DOCKYARD_HTTP_MODE: ${MODE:-https}
+  CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+
+services:
+  dky-proxy:
+    image: ghcr.io/kuluruvineeth/dockyard-proxy:${IMAGE_VERSION}
+    command: caddy run --resume
+    logging:
+      driver: "fluentd"
+      options:
+        mode: "non-blocking"
+        fluentd-address: "unix://${DOCKYARD_APP_DIRECTORY:-/var/www/dockyard}/.fluentd/fluentd.sock"
+        fluentd-async: "true"
+        fluentd-max-retries: 10
+        fluentd-sub-second-precision: "true"
+        tag: '{"service_id":"dky.proxy"}'
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role==manager
+      labels:
+        dky.stack: "true"
+        dky.role: "proxy"
+    ports:
+      - target: 443
+        published: ${HTTPS_PORT:-443}
+        protocol: tcp
+        mode: host
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+      - ${DOCKYARD_APP_DIRECTORY:-/var/www/dockyard}/.env:/app/.env
+    environment:
+      CADDY_ADMIN: 0.0.0.0:2019
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+    networks:
+      dockyard:
+        aliases:
+          - dky.proxy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+  dky-app:
+    image: ghcr.io/kuluruvineeth/dockyard-app:${IMAGE_VERSION}
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role==manager
+      labels:
+        dky.stack: "true"
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:80/api/ping"]
+      interval: 30s
+      timeout: 1m30s
+      start_period: 5s
+      retries: 10
+    networks:
+      dockyard:
+        aliases:
+          - dky.api
+          - dky.api.dockyard.internal
+          - dky.frontend
+          - dky.front.dockyard.internal
+    environment:
+      <<: *env-vars
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - docker-buildx-store:/root/.docker/buildx
+      - docker-data:/root/.docker
+      - ${DOCKYARD_APP_DIRECTORY:-/var/www/dockyard}/.env:/app/.env
+    depends_on:
+      - dky-db
+      - dky-valkey
+      - dky-proxy
+      - dky-temporal-server
+      - dky-loki
+  dky-temporal-server:
+    entrypoint: ["/etc/temporal/entrypoint.sh"]
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=${DOCKYARD_DB_USER:-dockyard}
+      - POSTGRES_PWD=${DOCKYARD_DB_PASSWORD}
+      - POSTGRES_SEEDS=dky.pgbouncer
+      - SERVICES=history,matching,frontend,worker
+      - BIND_ON_IP=0.0.0.0
+    image: temporalio/auto-setup:1.24.2
+    volumes:
+      - "${DOCKYARD_APP_DIRECTORY:-/var/www/dockyard}/temporalio/config/dynamicconfig/production-sql.yaml:/etc/temporal/config/dynamicconfig/development-sql.yaml"
+      - "${DOCKYARD_APP_DIRECTORY:-/var/www/dockyard}/temporalio/config/config_template.yaml:/etc/temporal/config/config_template.yaml"
+      - "${DOCKYARD_APP_DIRECTORY:-/var/www/dockyard}/temporalio/entrypoint.sh:/etc/temporal/entrypoint.sh"
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role==manager
+      labels:
+        dky.stack: "true"
+        dky.role: "temporal"
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 500M
+    networks:
+      dockyard:
+        aliases:
+          - dky.temporal
+    depends_on:
+      - dky-db
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bash",
+          "-c",
+          "temporal operator cluster health --address $$(hostname -i):7233",
+        ]
+      interval: 30s
+      timeout: 3m
+      start_period: 15s
+      retries: 3
+  dky-temporal-admin-tools:
+    image: temporalio/admin-tools:1.24.2-tctl-1.18.1-cli-1.0.0
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=${DOCKYARD_DB_USER:-dockyard}
+      - POSTGRES_PWD=${DOCKYARD_DB_PASSWORD}
+      - POSTGRES_SEEDS=dky.pgbouncer
+      - POSTGRES_SEEDS_CREATE=dky.db
+      - SKIP_SCHEMA_SETUP=false
+      - SKIP_DB_SETUP=false
+      - SERVICES=history,matching,frontend,worker
+      - TEMPORAL_HOME=/etc/temporal
+      - TEMPORAL_ADDRESS=dky.temporal:7233
+      - TEMPORAL_CLI_ADDRESS=dky.temporal:7233
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/production-sql.yaml
+      - BIND_ON_IP=0.0.0.0
+    volumes:
+      - "${DOCKYARD_APP_DIRECTORY:-/var/www/dockyard}/temporalio/admin-tools-entrypoint.sh:/etc/temporal/setup.sh"
+    entrypoint: ["/etc/temporal/setup.sh"]
+    deploy:
+      mode: replicated-job
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role==manager
+      labels:
+        dky.stack: "true"
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 500M
+    networks:
+      - dockyard
+  dky-temporal-main-worker:
+    image: ghcr.io/kuluruvineeth/dockyard-app:${IMAGE_VERSION}
+    command: /bin/bash -l -c "/app/scripts/run_worker.sh"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - docker-buildx-store:/root/.docker/buildx
+      - docker-data:/root/.docker
+      - ${DOCKYARD_APP_DIRECTORY:-/var/www/dockyard}/.env:/app/.env
+    depends_on:
+      - dky-db
+      - dky-valkey
+      - dky-proxy
+      - dky-temporal-server
+      - dky-loki
+    environment:
+      <<: *env-vars
+      BACKEND_COMPONENT: WORKER
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role==manager
+      labels:
+        dky.stack: "true"
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+    networks:
+      - dockyard
+  dky-temporal-schedule-worker:
+    image: ghcr.io/kuluruvineeth/dockyard-app:${IMAGE_VERSION}
+    command: /bin/bash -l -c "/app/scripts/run_worker.sh"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - docker-buildx-store:/root/.docker/buildx
+      - docker-data:/root/.docker
+      - ${DOCKYARD_APP_DIRECTORY:-/var/www/dockyard}/.env:/app/.env
+    depends_on:
+      - dky-db
+      - dky-valkey
+      - dky-proxy
+      - dky-temporal-server
+      - dky-loki
+    environment:
+      <<: *env-vars
+      BACKEND_COMPONENT: WORKER
+      TEMPORALIO_WORKER_TASK_QUEUE: schedule-task-queue
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role==manager
+      labels:
+        dky.stack: "true"
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+    networks:
+      - dockyard
+  dky-valkey:
+    image: valkey/valkey:7.2.5-alpine
+    volumes:
+      - redis-data:/data
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role==manager
+      labels:
+        dky.stack: "true"
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 500M
+    networks:
+      dockyard:
+        aliases:
+          - dky.valkey
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      retries: 10
+      timeout: 2s
+  dky-db:
+    image: postgres:16-alpine
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DOCKYARD_DB_USER:-dockyard}
+      POSTGRES_PASSWORD: ${DOCKYARD_DB_PASSWORD}
+      POSTGRES_DB: dockyard
+    networks:
+      dockyard:
+        aliases:
+          - dky.db
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role==manager
+      labels:
+        dky.stack: "true"
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+      timeout: 10s
+  dky-pgbouncer:
+    image: edoburu/pgbouncer:v1.25.1-p0
+    environment:
+      <<: *env-vars
+      DB_HOST: dky.db
+      POOL_MODE: transaction
+      MAX_DB_CONNECTIONS: 100
+      DEFAULT_POOL_SIZE: 50
+      AUTH_TYPE: scram-sha-256
+    depends_on:
+      - dky-db
+    networks:
+      dockyard:
+        aliases:
+          - dky.pgbouncer
+    volumes:
+      - ./pgbouncer/entrypoint.sh:/entrypoint.sh
+    entrypoint: ["/entrypoint.sh"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+      timeout: 10s
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role==manager
+      labels:
+        dky.stack: "true"
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+
+  dky-fluentd:
+    image: fluentd:v1.16.2-1.1
+    volumes:
+      - "${DOCKYARD_APP_DIRECTORY:-/var/www/dockyard}/fluent.conf:/fluentd/etc/fluent.conf:ro"
+      - "${DOCKYARD_APP_DIRECTORY:-/var/www/dockyard}/.fluentd/:/var/fluentd/:rw"
+    networks:
+      dockyard:
+        aliases:
+          - dky.fluentd
+    environment:
+      API_HOST: dky.api.dockyard.internal:80
+      DOCKYARD_SECRET_KEY: ${DOCKYARD_SECRET_KEY}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role==manager
+      labels:
+        dky.stack: "true"
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 200M
+  dky-loki:
+    image: grafana/loki:3.4
+    volumes:
+      - ${DOCKYARD_APP_DIRECTORY:-/var/www/dockyard}/loki-config.yaml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml -config.expand-env=true
+    networks:
+      dockyard:
+        aliases:
+          - dky.loki
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role==manager
+      labels:
+        dky.stack: "true"
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+    healthcheck:
+      test: wget --quiet --tries=1 --output-document=- http://localhost:3100/ready | grep -q -w ready || exit 1
+      start_period: 20s
+      interval: 10s
+      timeout: 1s
+      retries: 12 # try for 2 minutes
+volumes:
+  loki-data:
+    labels:
+      dky.stack: "true"
+  docker-buildx-store:
+    labels:
+      dky.stack: "true"
+  docker-data:
+    labels:
+      dky.stack: "true"
+  db-data:
+    labels:
+      dky.stack: "true"
+  redis-data:
+    labels:
+      dky.stack: "true"
+  caddy-data:
+    labels:
+      dky.stack: "true"
+  caddy-config:
+    labels:
+      dky.stack: "true"
+networks:
+  dockyard:
+    external: true

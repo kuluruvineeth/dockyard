@@ -1,0 +1,253 @@
+x-backend-vars: &env-vars
+  REDIS_URL: redis://dky.valkey:6379/0
+  DB_HOST: dky.db
+  DB_PORT: 5432
+  CADDY_PROXY_ADMIN_HOST: http://dky.proxy:2019
+  DOCKYARD_FLUENTD_HOST: unix://${HOME}/.fluentd/fluentd.sock
+  TEMPORALIO_SERVER_URL: dky.temporal:7233
+  LOKI_HOST: http://dky.loki:3100
+  DOCKYARD_APP_DOMAIN: ${DOCKYARD_APP_DOMAIN:-127-0-0-1.sslip.io}
+
+services:
+  dky-loki:
+    image: grafana/loki:3.4
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/config.yaml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml -config.expand-env=true
+    networks:
+      dockyard:
+        aliases:
+          - dky.loki
+  dky-grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3004:3000"
+    depends_on:
+      - dky-loki
+    environment:
+      - GF_USERS_DEFAULT_THEME=system
+      # Basic Configuration
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=password
+    volumes:
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+      # Persistent Storage
+      - grafana-data:/var/lib/grafana
+    networks:
+      - dockyard
+
+  dky-drizzle-gateway:
+    image: ghcr.io/drizzle-team/gateway:latest
+    ports:
+      - "4983:4983"
+    depends_on:
+      - dky-db
+    environment:
+      - STORE_PATH=/app
+      - DATABASE_URL=postgresql://postgres:password@dky.db:5432/dockyard
+    volumes:
+      - drizzle-gateway-data:/app
+    networks:
+      - dockyard
+
+  dky-proxy-test:
+    image: ghcr.io/kuluruvineeth/dockyard-proxy:canary
+    command: caddy run --resume
+    ports:
+      - "2020:2020"
+    environment:
+      CADDY_ADMIN: 0.0.0.0:2020
+  dky-temporal-server:
+    entrypoint: ["/etc/temporal/entrypoint.sh"]
+    command: ["autosetup"]
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PWD=password
+      - POSTGRES_SEEDS=dky.db
+      - SKIP_SCHEMA_SETUP=false
+      - SKIP_DB_SETUP=false
+      - SERVICES=history,matching,frontend,worker
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+      - BIND_ON_IP=0.0.0.0
+    image: temporalio/auto-setup:1.24.2
+    volumes:
+      - ./temporalio/config/dynamicconfig:/etc/temporal/config/dynamicconfig/
+      - ./temporalio/config/config_template.yaml:/etc/temporal/config/config_template.yaml
+      - ./temporalio/entrypoint.sh:/etc/temporal/entrypoint.sh
+    networks:
+      dockyard:
+        aliases:
+          - dky.temporal
+    ports:
+      - 7233:7233
+    deploy:
+      labels:
+        dky.role: "temporal"
+    depends_on:
+      - dky-db
+    restart: always
+  dky-api:
+    build:
+      context: ../backend
+      dockerfile: ../backend/Dockerfile
+    command: >
+      bash -c "source /opt/.venv/bin/activate &&
+               uv sync --locked --active &&
+               alembic upgrade head &&
+               uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    container_name: dky-api
+    volumes:
+      - ../backend:/code
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - docker-buildx-store:/root/.docker/buildx
+      - docker-data:/root/.docker
+    depends_on:
+      - dky-db
+      - dky-redis
+      - dky-temporal-server
+    restart: always
+    environment:
+      <<: *env-vars
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/api/ping"]
+      interval: 1m
+      timeout: 3m
+      start_period: 30s
+      retries: 3
+    ports:
+      - "8000:8000"
+    networks:
+      dockyard:
+        aliases:
+          - dky.api
+          - dky.api.dockyard.internal
+          - dky.frontend
+          - dky.front.dockyard.internal
+  dky-temporal-main-worker:
+    build:
+      context: ../backend
+      dockerfile: ../backend/Dockerfile
+    container_name: dky-temporal-main-worker
+    command: >
+      bash -c "source /opt/.venv/bin/activate &&
+               uv sync --locked --active &&
+               python -m app.temporal.worker"
+    volumes:
+      - ../backend:/code
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - docker-buildx-store:/root/.docker/buildx
+      - docker-data:/root/.docker
+    depends_on:
+      - dky-db
+      - dky-redis
+      - dky-temporal-server
+    environment:
+      <<: *env-vars
+      BACKEND_COMPONENT: WORKER
+    networks:
+      - dockyard
+  dky-temporal-schedule-worker:
+    build:
+      context: ../backend
+      dockerfile: ../backend/Dockerfile
+    container_name: dky-temporal-schedule-worker
+    command: >
+      bash -c "source /opt/.venv/bin/activate &&
+               uv sync --locked --active &&
+               python -m app.temporal.worker"
+    volumes:
+      - ../backend:/code
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - docker-buildx-store:/root/.docker/buildx
+      - docker-data:/root/.docker
+    depends_on:
+      - dky-db
+      - dky-redis
+      - dky-temporal-server
+    environment:
+      <<: *env-vars
+      BACKEND_COMPONENT: WORKER
+      TEMPORALIO_WORKER_TASK_QUEUE: schedule-task-queue
+    networks:
+      - dockyard
+  dky-redis:
+    image: valkey/valkey:7.2.5-alpine
+    container_name: dky-redis
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6381:6379"
+    networks:
+      dockyard:
+        aliases:
+          - dky.valkey
+  dky-db:
+    image: postgres:16-alpine
+    container_name: dky-db
+    restart: unless-stopped
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: dockyard
+    ports:
+      - "5434:5432"
+    networks:
+      dockyard:
+        aliases:
+          - dky.db
+  dky-redis-gui:
+    image: redis/redisinsight
+    container_name: dky-redis-gui
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8089:5540"
+    volumes:
+      - redisinsight:/data
+    networks:
+      - dockyard
+  dky-fluentd:
+    image: fluentd:v1.16.2-1.1
+    volumes:
+      - "./fluentd/fluent.conf:/fluentd/etc/fluent.conf"
+      - "$HOME/.fluentd/:/var/fluentd/"
+    networks:
+      dockyard:
+        aliases:
+          - dky.fluentd
+    environment:
+      API_HOST: host.docker.internal:8000
+      DOCKYARD_SECRET_KEY: "dky-insecure-^@$8fc&u2j)4@k+p+bg0ei8sm+@+pwq)hstk$$a*0*7#k54kybx" # default value set in `config.py`
+    deploy:
+      mode: global
+  dky-temporal-ui:
+    depends_on:
+      - dky-temporal-server
+    environment:
+      - TEMPORAL_ADDRESS=dky.temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    image: temporalio/ui:2.42.1
+    networks:
+      - dockyard
+    ports:
+      - 8082:8080
+volumes:
+  db-data:
+  redis-data:
+  redisinsight:
+  caddy-data:
+  docker-buildx-store:
+  docker-data:
+  loki-data:
+  grafana-data:
+  drizzle-gateway-data:
+networks:
+  dockyard:
+    external: true
