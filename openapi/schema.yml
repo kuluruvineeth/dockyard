@@ -1,0 +1,414 @@
+openapi: 3.1.0
+info:
+  title: Dockyard API
+  version: 1.0.0 (v1)
+paths:
+  /api/ping:
+    get:
+      summary: Ping
+      operationId: ping_api_ping_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PingResponse'
+  /api/auth/login:
+    post:
+      summary: Login View
+      operationId: login_view_api_auth_login_post
+      parameters:
+      - name: redirect_to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Redirect To
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSuccessResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/auth/logout:
+    delete:
+      summary: Logout View
+      operationId: logout_view_api_auth_logout_delete
+      responses:
+        '204':
+          description: Successful Response
+  /api/auth/me:
+    get:
+      summary: Me View
+      operationId: me_view_api_auth_me_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthedResponse'
+  /api/csrf:
+    get:
+      summary: Csrf View
+      operationId: csrf_view_api_csrf_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CSRFResponse'
+  /api/auth/check-user-existence:
+    get:
+      summary: Check User Existence
+      operationId: check_user_existence_api_auth_check_user_existence_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserExistenceResponse'
+  /api/auth/create-initial-user:
+    post:
+      summary: Create Initial User
+      operationId: create_initial_user_api_auth_create_initial_user_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreationRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCreatedResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/auth/change-password:
+    post:
+      summary: Change Password
+      operationId: change_password_api_auth_change_password_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangePasswordResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/auth/update-profile:
+    patch:
+      summary: Update Profile
+      operationId: update_profile_api_auth_update_profile_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/settings:
+    get:
+      summary: Get Api Settings
+      operationId: get_api_settings_api_settings_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsResponse'
+  /api/server/resource-limits:
+    get:
+      summary: Get Server Resource Limits View
+      operationId: get_server_resource_limits_view_api_server_resource_limits_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceLimitResponse'
+components:
+  schemas:
+    AuthedResponse:
+      properties:
+        user:
+          $ref: '#/components/schemas/UserSchema'
+        membership:
+          type: 'null'
+          title: Membership
+      type: object
+      required:
+      - user
+      title: AuthedResponse
+    CSRFResponse:
+      properties:
+        details:
+          type: string
+          title: Details
+      type: object
+      required:
+      - details
+      title: CSRFResponse
+    ChangePasswordRequest:
+      properties:
+        current_password:
+          type: string
+          minLength: 1
+          title: Current Password
+        new_password:
+          type: string
+          minLength: 8
+          title: New Password
+        confirm_password:
+          type: string
+          minLength: 1
+          title: Confirm Password
+      type: object
+      required:
+      - current_password
+      - new_password
+      - confirm_password
+      title: ChangePasswordRequest
+    ChangePasswordResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+      type: object
+      required:
+      - success
+      title: ChangePasswordResponse
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    LoginRequest:
+      properties:
+        username:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Username
+        password:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Password
+      type: object
+      required:
+      - username
+      - password
+      title: LoginRequest
+    LoginSuccessResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+      type: object
+      required:
+      - success
+      title: LoginSuccessResponse
+    PingResponse:
+      properties:
+        ping:
+          type: string
+          const: pong
+          title: Ping
+          default: pong
+      type: object
+      title: PingResponse
+    ResourceLimitResponse:
+      properties:
+        no_of_cpus:
+          type: integer
+          title: No Of Cpus
+        max_memory_in_bytes:
+          type: integer
+          title: Max Memory In Bytes
+      type: object
+      required:
+      - no_of_cpus
+      - max_memory_in_bytes
+      title: ResourceLimitResponse
+    SettingsResponse:
+      properties:
+        root_domain:
+          type: string
+          title: Root Domain
+        app_domain:
+          type: string
+          title: App Domain
+        image_version:
+          type: string
+          title: Image Version
+        commit_sha:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Commit Sha
+      type: object
+      required:
+      - root_domain
+      - app_domain
+      - image_version
+      - commit_sha
+      title: SettingsResponse
+    UpdateProfileRequest:
+      properties:
+        username:
+          anyOf:
+          - type: string
+            maxLength: 150
+            minLength: 1
+            pattern: ^[\w.@+-]+$
+          - type: 'null'
+          title: Username
+        first_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: First Name
+        last_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Name
+      type: object
+      title: UpdateProfileRequest
+    UserCreatedResponse:
+      properties:
+        detail:
+          type: string
+          title: Detail
+      type: object
+      required:
+      - detail
+      title: UserCreatedResponse
+    UserCreationRequest:
+      properties:
+        username:
+          type: string
+          maxLength: 150
+          minLength: 1
+          pattern: ^[\w.@+-]+$
+          title: Username
+        password:
+          type: string
+          minLength: 8
+          title: Password
+      type: object
+      required:
+      - username
+      - password
+      title: UserCreationRequest
+    UserExistenceResponse:
+      properties:
+        exists:
+          type: boolean
+          title: Exists
+      type: object
+      required:
+      - exists
+      title: UserExistenceResponse
+    UserSchema:
+      properties:
+        username:
+          type: string
+          title: Username
+        first_name:
+          type: string
+          title: First Name
+        last_name:
+          type: string
+          title: Last Name
+        is_superuser:
+          type: boolean
+          title: Is Superuser
+      type: object
+      required:
+      - username
+      - first_name
+      - last_name
+      - is_superuser
+      title: UserSchema
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
