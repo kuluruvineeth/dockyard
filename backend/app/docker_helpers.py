@@ -1,4 +1,5 @@
 import docker
+from docker.errors import APIError
 
 SERVER_RESOURCE_LIMIT_COMMAND = (
     "sh -c 'nproc && grep MemTotal /proc/meminfo | awk \"{print \\$2 * 1024}\"'"
@@ -39,6 +40,18 @@ def get_docker_client():
     if _client is None:
         _client = docker.from_env()
     return _client
+
+
+def search_images_docker_hub(term: str) -> list[dict]:
+    client = get_docker_client()
+    try:
+        result = client.images.search(term=term, limit=30)
+    except APIError:
+        return []
+    return [
+        {"full_image": image["name"], "description": image.get("description", "")}
+        for image in result
+    ]
 
 
 def get_server_resource_limits() -> tuple[int, int]:
