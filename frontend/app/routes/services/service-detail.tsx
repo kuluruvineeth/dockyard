@@ -72,6 +72,11 @@ export async function clientAction({
     } else if (changeField === "command") {
       const command = formData.get("command")?.toString()?.trim();
       newValue = command ? command : null;
+    } else if (changeField === "ports") {
+      newValue = {
+        host: Number(formData.get("host")),
+        forwarded: Number(formData.get("forwarded"))
+      };
     } else {
       const urlValue: Record<string, unknown> = {
         domain: formData.get("domain")?.toString(),
@@ -260,6 +265,10 @@ export default function ServiceDetail({
   const pendingEnv = (service?.unapplied_changes ?? []).filter(
     (c) => c.field === "env_variables" && c.type === "ADD"
   );
+  const appliedPorts = service?.ports ?? [];
+  const pendingPorts = (service?.unapplied_changes ?? []).filter(
+    (c) => c.field === "ports" && c.type === "ADD"
+  );
   const pendingCount = service?.unapplied_changes.length ?? 0;
 
   return (
@@ -414,6 +423,41 @@ export default function ServiceDetail({
           </SectionCard>
 
           <SectionCard
+            title="Exposed ports"
+            description="Map a host port to a container port. Use URLs for HTTP traffic."
+          >
+            <div className="divide-y divide-border/60">
+              {appliedPorts.length === 0 && pendingPorts.length === 0 && (
+                <EmptyState>No exposed ports yet.</EmptyState>
+              )}
+              {appliedPorts.map((port) => (
+                <div
+                  key={port.id}
+                  className="flex items-center gap-2 px-5 py-3 font-mono text-sm tabular-nums transition-colors duration-150 hover:bg-muted/40"
+                >
+                  <span>{port.host}</span>
+                  <span className="text-grey">→</span>
+                  <span className="text-grey">{port.forwarded}</span>
+                </div>
+              ))}
+              {pendingPorts.map((change) => {
+                const value = change.new_value as {
+                  host?: number;
+                  forwarded?: number;
+                };
+                return (
+                  <PendingRow key={change.id}>
+                    <span className="tabular-nums">{value.host}</span>{" "}
+                    <span className="text-grey">→</span>{" "}
+                    <span className="tabular-nums">{value.forwarded}</span>
+                  </PendingRow>
+                );
+              })}
+            </div>
+            <NewServicePortForm actionData={actionData} isPending={isPending} />
+          </SectionCard>
+
+          <SectionCard
             title="Environment variables"
             description="Injected into the service at deploy time."
           >
@@ -509,6 +553,55 @@ export default function ServiceDetail({
         </aside>
       </div>
     </section>
+  );
+}
+
+function NewServicePortForm({
+  actionData,
+  isPending
+}: {
+  actionData: Route.ComponentProps["actionData"];
+  isPending: boolean;
+}) {
+  const errors = getFormErrorsFromResponseData(
+    actionData && "changeError" in actionData
+      ? actionData.changeError
+      : undefined
+  );
+
+  return (
+    <Form method="POST" className={SECTION_FOOTER}>
+      <input type="hidden" name="change_field" value="ports" />
+      <input type="hidden" name="change_type" value="ADD" />
+
+      {errors.new_value && (
+        <p className="text-sm text-destructive">{errors.new_value.join(" ")}</p>
+      )}
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-end">
+        <FieldSet required className="inline-flex flex-1 flex-col gap-1.5">
+          <FieldSetLabel>Forwarded port</FieldSetLabel>
+          <FieldSetInput
+            name="forwarded"
+            placeholder="ex: 8080"
+            className="font-mono"
+            required
+          />
+        </FieldSet>
+        <FieldSet required className="inline-flex flex-1 flex-col gap-1.5">
+          <FieldSetLabel>Host port</FieldSetLabel>
+          <FieldSetInput
+            name="host"
+            placeholder="ex: 8080"
+            className="font-mono"
+            required
+          />
+        </FieldSet>
+        <SubmitButton isPending={isPending} variant="outline" className="w-fit">
+          {isPending ? "Adding…" : "Add"}
+        </SubmitButton>
+      </div>
+    </Form>
   );
 }
 
