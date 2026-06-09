@@ -150,6 +150,38 @@ export const serviceQueries = {
             .slice(0, 3)
             .map((d) => d.status)
         )
+    }),
+  deploymentLogs: (
+    projectSlug: string,
+    envSlug: string,
+    slug: string,
+    deploymentHash: string
+  ) =>
+    queryOptions({
+      queryKey: [
+        "DEPLOYMENT_LOGS",
+        projectSlug,
+        envSlug,
+        slug,
+        deploymentHash
+      ] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await apiClient.GET(
+          "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/{deployment_hash}/logs/",
+          {
+            params: {
+              path: {
+                project_slug: projectSlug,
+                env_slug: envSlug,
+                slug,
+                deployment_hash: deploymentHash
+              }
+            },
+            signal
+          }
+        );
+        return data?.logs ?? [];
+      }
     })
 };
 

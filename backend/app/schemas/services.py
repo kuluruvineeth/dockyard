@@ -244,6 +244,10 @@ class DeploymentListResponse(BaseModel):
     count: int
 
 
+class DeploymentLogsResponse(BaseModel):
+    logs: list[str]
+
+
 class ServiceCardSchema(BaseModel):
     id: str
     slug: str

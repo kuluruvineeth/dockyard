@@ -1091,7 +1091,12 @@ export default function ServiceDetail({
                     <span
                       className={`absolute left-[3px] top-6 size-2 rounded-full ring-4 ring-background ${DOT_BG[color]}`}
                     />
-                    <DockerDeploymentCard deployment={dpl} />
+                    <DockerDeploymentCard
+                      deployment={dpl}
+                      projectSlug={params.projectSlug}
+                      envSlug={params.envSlug}
+                      serviceSlug={params.slug}
+                    />
                   </li>
                 </Fragment>
               );

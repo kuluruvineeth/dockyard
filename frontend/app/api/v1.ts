@@ -91,6 +91,10 @@ export interface paths {
     /** Deployment Single */
     get: operations["deployment_single_api_projects__project_slug___env_slug__service_details__slug__deployments__deployment_hash___get"];
   };
+  "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/{deployment_hash}/logs/": {
+    /** Deployment Logs */
+    get: operations["deployment_logs_api_projects__project_slug___env_slug__service_details__slug__deployments__deployment_hash__logs__get"];
+  };
   "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/": {
     /** Get Service */
     get: operations["get_service_api_projects__project_slug___env_slug__service_details__slug___get"];
@@ -203,6 +207,11 @@ export interface components {
       results: components["schemas"]["DeploymentSchema"][];
       /** Count */
       count: number;
+    };
+    /** DeploymentLogsResponse */
+    DeploymentLogsResponse: {
+      /** Logs */
+      logs: string[];
     };
     /** DeploymentSchema */
     DeploymentSchema: {
@@ -1185,6 +1194,37 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["DeploymentSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Deployment Logs */
+  deployment_logs_api_projects__project_slug___env_slug__service_details__slug__deployments__deployment_hash__logs__get: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+        deployment_hash: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DeploymentLogsResponse"];
         };
       };
       /** @description Validation Error */

@@ -82,6 +82,12 @@ class FakeSwarmService:
     def scale(self, replicas):
         self.replicas = replicas
 
+    def logs(self, **kwargs):
+        return [
+            b"2026-06-09T10:00:00 starting service\n",
+            b"2026-06-09T10:00:01 listening on :3000\n",
+        ]
+
     def remove(self):
         self.removed = True
 

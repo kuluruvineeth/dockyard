@@ -1,3 +1,4 @@
+import logging
 import secrets
 
 import docker.errors
@@ -24,6 +25,7 @@ from app.models import (
 from app.models.base import generate_id
 from app.schemas.services import (
     DeploymentListResponse,
+    DeploymentLogsResponse,
     DeploymentSchema,
     DockerServiceCreateRequest,
     ServiceCardSchema,
@@ -49,6 +51,7 @@ ITEM_FIELDS = {
 
 router = APIRouter()
 fake = Faker()
+_logger = logging.getLogger("dockyard.docker_services")
 
 
 async def get_project_or_404(db, user, slug: str) -> Project:
@@ -233,6 +236,60 @@ async def deployment_single(
             f"A deployment with the hash `{deployment_hash}` does not exist."
         )
     return DeploymentSchema.from_deployment(deployment)
+
+
+@router.get(
+    "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/{deployment_hash}/logs/",
+    response_model=DeploymentLogsResponse,
+)
+async def deployment_logs(
+    project_slug: str,
+    env_slug: str,
+    slug: str,
+    deployment_hash: str,
+    user: CurrentUser,
+    db: DBSession,
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+
+    result = await db.execute(
+        select(Deployment).where(Deployment.service_id == service.id)
+    )
+    deployment = next(
+        (
+            d
+            for d in result.scalars()
+            if d.unprefixed_hash == deployment_hash or d.id == deployment_hash
+        ),
+        None,
+    )
+    if deployment is None:
+        raise NotFound(
+            f"A deployment with the hash `{deployment_hash}` does not exist."
+        )
+
+    client = docker_helpers.get_docker_client()
+    swarm_name = docker_helpers.get_swarm_service_name_for_deployment(
+        deployment.unprefixed_hash, service.project_id, service.id
+    )
+    lines: list[str] = []
+    try:
+        swarm = client.services.get(swarm_name)
+        for chunk in swarm.logs(stdout=True, stderr=True, tail=200):
+            text = (
+                chunk.decode("utf-8", errors="replace")
+                if isinstance(chunk, bytes)
+                else str(chunk)
+            )
+            lines.extend(line for line in text.splitlines() if line)
+    except docker.errors.NotFound:
+        pass
+    except Exception as error:  # noqa: BLE001
+        _logger.warning("could not read deployment logs: %s", error)
+
+    return DeploymentLogsResponse(logs=lines[-500:])
 
 
 @router.get(

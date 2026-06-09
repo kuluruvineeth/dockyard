@@ -760,3 +760,25 @@ class TestToggleService:
             _toggle_url(p, "app"), json={"desired_state": "pause"}
         )
         assert response.status_code == 400
+
+
+class TestDeploymentLogs:
+    async def test_deployment_logs(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        deploy = await auth_client.put(_deploy_url(p, "app"))
+        deployment_hash = deploy.json()["id"].rsplit("_", 1)[-1]
+        response = await auth_client.get(
+            f"/api/projects/{p}/production/service-details/app/deployments/{deployment_hash}/logs/"
+        )
+        assert response.status_code == 200
+        assert len(response.json()["logs"]) >= 1
+        assert any("listening" in line for line in response.json()["logs"])
+
+    async def test_deployment_logs_non_existing(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        response = await auth_client.get(
+            f"/api/projects/{p}/production/service-details/app/deployments/nope/logs/"
+        )
+        assert response.status_code == 404
