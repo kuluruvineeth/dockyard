@@ -31,6 +31,7 @@ from app.schemas.services import (
     ServiceUpdateRequest,
 )
 from app.services import proxy
+from app.services.deploy import _healthcheck_snapshot, build_service_snapshot
 from app.temporal.client import schedule_deploy_docker_service
 
 RESERVED_PORTS = {80, 443}
@@ -265,10 +266,7 @@ async def deploy_docker_service_view(
     )
     service.deployments.append(deployment)
     service.apply_pending_changes(deployment)
-    deployment.service_snapshot = {
-        "image": service.image,
-        "command": service.command,
-    }
+    deployment.service_snapshot = build_service_snapshot(service)
     await db.commit()
 
     await schedule_deploy_docker_service(db, service, environment, deployment)
@@ -332,6 +330,29 @@ async def redeploy_docker_service(
             )
         )
 
+    snapshot_resource_limits = snapshot.get("resource_limits")
+    if snapshot_resource_limits != service.resource_limits:
+        service.add_change(
+            DeploymentChange(
+                type=ChangeType.UPDATE.value,
+                field=ChangeField.RESOURCE_LIMITS.value,
+                new_value=snapshot_resource_limits,
+                old_value=service.resource_limits,
+            )
+        )
+
+    snapshot_healthcheck = snapshot.get("healthcheck")
+    current_healthcheck = _healthcheck_snapshot(service.healthcheck)
+    if snapshot_healthcheck != current_healthcheck:
+        service.add_change(
+            DeploymentChange(
+                type=ChangeType.UPDATE.value,
+                field=ChangeField.HEALTHCHECK.value,
+                new_value=snapshot_healthcheck,
+                old_value=current_healthcheck,
+            )
+        )
+
     slot = Deployment.get_next_deployment_slot(service.latest_production_deployment)
     deployment = Deployment(
         id=generate_id("dpl_dkr_"),
@@ -342,10 +363,7 @@ async def redeploy_docker_service(
     )
     service.deployments.append(deployment)
     service.apply_pending_changes(deployment)
-    deployment.service_snapshot = {
-        "image": service.image,
-        "command": service.command,
-    }
+    deployment.service_snapshot = build_service_snapshot(service)
     await db.commit()
 
     await schedule_deploy_docker_service(db, service, environment, deployment)

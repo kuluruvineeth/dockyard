@@ -29,6 +29,59 @@ NANOSECONDS_PER_SECOND = 1_000_000_000
 ACCESS_MODE_MAP = {"READ_WRITE": "rw", "READ_ONLY": "ro"}
 
 
+def _healthcheck_snapshot(healthcheck) -> dict | None:
+    if healthcheck is None:
+        return None
+    return {
+        "type": healthcheck.type,
+        "value": healthcheck.value,
+        "interval_seconds": healthcheck.interval_seconds,
+        "timeout_seconds": healthcheck.timeout_seconds,
+        "associated_port": healthcheck.associated_port,
+    }
+
+
+def build_service_snapshot(service) -> dict:
+    return {
+        "image": service.image,
+        "command": service.command,
+        "healthcheck": _healthcheck_snapshot(service.healthcheck),
+        "resource_limits": service.resource_limits,
+        "urls": [
+            {
+                "domain": u.domain,
+                "base_path": u.base_path,
+                "strip_prefix": u.strip_prefix,
+                "redirect_to": u.redirect_to,
+                "associated_port": u.associated_port,
+            }
+            for u in service.urls
+        ],
+        "ports": [{"host": p.host, "forwarded": p.forwarded} for p in service.ports],
+        "env_variables": [
+            {"key": e.key, "value": e.value} for e in service.env_variables
+        ],
+        "volumes": [
+            {
+                "name": v.name,
+                "mode": v.mode,
+                "container_path": v.container_path,
+                "host_path": v.host_path,
+            }
+            for v in service.volumes
+        ],
+        "configs": [
+            {
+                "name": c.name,
+                "mount_path": c.mount_path,
+                "contents": c.contents,
+                "language": c.language,
+            }
+            for c in service.configs
+        ],
+    }
+
+
 class TerminalDeployError(Exception):
     """A failure this deployment can never recover from by being retried.
 

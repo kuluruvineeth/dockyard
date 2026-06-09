@@ -589,6 +589,36 @@ class TestRedeployDockerService:
         service = await auth_client.get(_details_url(p, "app"))
         assert service.json()["image"] == "valkey:7.2-alpine"
 
+    async def test_redeploy_restores_healthcheck(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        await auth_client.put(
+            _changes_url(p, "app"),
+            json={
+                "field": "healthcheck",
+                "type": "UPDATE",
+                "new_value": {"type": "PATH", "value": "/v1", "associated_port": 80},
+            },
+        )
+        initial = await auth_client.put(_deploy_url(p, "app"))
+        initial_hash = initial.json()["id"].rsplit("_", 1)[-1]
+
+        await auth_client.put(
+            _changes_url(p, "app"),
+            json={
+                "field": "healthcheck",
+                "type": "UPDATE",
+                "new_value": {"type": "PATH", "value": "/v2", "associated_port": 80},
+            },
+        )
+        await auth_client.put(_deploy_url(p, "app"))
+
+        response = await auth_client.put(_redeploy_url(p, "app", initial_hash))
+        assert response.status_code == 200
+
+        service = await auth_client.get(_details_url(p, "app"))
+        assert service.json()["healthcheck"]["value"] == "/v1"
+
     async def test_redeploy_non_existing_deployment(self, auth_client):
         p = await _make_project(auth_client)
         await _make_service(auth_client, p, "app", image="redis:alpine")
