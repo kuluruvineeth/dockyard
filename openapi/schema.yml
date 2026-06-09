@@ -853,6 +853,52 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/projects/{project_slug}/{env_slug}/toggle-service/docker/{slug}/:
+    put:
+      summary: Toggle Service
+      operationId: toggle_service_api_projects__project_slug___env_slug__toggle_service_docker__slug___put
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToggleServiceRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/projects/{project_slug}/{env_slug}/request-service-changes/{slug}/:
     put:
       summary: Request Service Changes
@@ -1718,6 +1764,18 @@ components:
       - is_preview
       - created_at
       title: SimpleEnvironmentSchema
+    ToggleServiceRequest:
+      properties:
+        desired_state:
+          type: string
+          enum:
+          - start
+          - stop
+          title: Desired State
+      type: object
+      required:
+      - desired_state
+      title: ToggleServiceRequest
     URLSchema:
       properties:
         id:

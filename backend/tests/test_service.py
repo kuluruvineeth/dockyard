@@ -716,3 +716,47 @@ class TestArchiveDockerService:
         await auth_client.delete(_archive_url(p, "app"))
         routes = fake_caddy.domains["app.dky.local"]["handle"][0]["routes"]
         assert not any(r["@id"] == "app.dky.local-*" for r in routes)
+
+
+def _toggle_url(project_slug, slug, env_slug="production"):
+    return f"/api/projects/{project_slug}/{env_slug}/toggle-service/docker/{slug}/"
+
+
+class TestToggleService:
+    async def test_toggle_stop_sleeps(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        await auth_client.put(_deploy_url(p, "app"))
+        response = await auth_client.put(
+            _toggle_url(p, "app"), json={"desired_state": "stop"}
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "SLEEPING"
+
+    async def test_toggle_start_wakes(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        await auth_client.put(_deploy_url(p, "app"))
+        await auth_client.put(_toggle_url(p, "app"), json={"desired_state": "stop"})
+        response = await auth_client.put(
+            _toggle_url(p, "app"), json={"desired_state": "start"}
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "HEALTHY"
+
+    async def test_toggle_without_deployment_conflicts(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        response = await auth_client.put(
+            _toggle_url(p, "app"), json={"desired_state": "stop"}
+        )
+        assert response.status_code == 409
+
+    async def test_toggle_bad_state(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        await auth_client.put(_deploy_url(p, "app"))
+        response = await auth_client.put(
+            _toggle_url(p, "app"), json={"desired_state": "pause"}
+        )
+        assert response.status_code == 400

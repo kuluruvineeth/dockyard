@@ -79,6 +79,9 @@ class FakeSwarmService:
         state = "running" if FakeSwarmService.running else "starting"
         return [{"Status": {"State": state}}]
 
+    def scale(self, replicas):
+        self.replicas = replicas
+
     def remove(self):
         self.removed = True
 

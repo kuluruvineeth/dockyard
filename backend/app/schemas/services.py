@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -207,6 +207,10 @@ class ServiceChangeRequest(BaseModel):
     type: str
     item_id: str | None = None
     new_value: Any = None
+
+
+class ToggleServiceRequest(BaseModel):
+    desired_state: Literal["start", "stop"]
 
 
 class DeploymentSchema(BaseModel):

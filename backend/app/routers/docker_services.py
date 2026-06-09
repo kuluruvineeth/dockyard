@@ -15,6 +15,7 @@ from app.models import (
     ChangeType,
     Deployment,
     DeploymentChange,
+    DeploymentStatus,
     Environment,
     Project,
     Service,
@@ -29,6 +30,7 @@ from app.schemas.services import (
     ServiceChangeRequest,
     ServiceSchema,
     ServiceUpdateRequest,
+    ToggleServiceRequest,
 )
 from app.services import proxy
 from app.services.deploy import _healthcheck_snapshot, build_service_snapshot
@@ -403,6 +405,49 @@ async def archive_docker_service(
     await db.delete(service)
     await db.commit()
     return Response(status_code=204)
+
+
+@router.put(
+    "/api/projects/{project_slug}/{env_slug}/toggle-service/docker/{slug}/",
+    response_model=DeploymentSchema,
+)
+async def toggle_service(
+    project_slug: str,
+    env_slug: str,
+    slug: str,
+    body: ToggleServiceRequest,
+    user: CurrentUser,
+    db: DBSession,
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+
+    deployment = service.latest_production_deployment
+    if deployment is None:
+        raise ResourceConflict(
+            "This service has no current production deployment to toggle."
+        )
+
+    client = docker_helpers.get_docker_client()
+    swarm_name = docker_helpers.get_swarm_service_name_for_deployment(
+        deployment.unprefixed_hash, service.project_id, service.id
+    )
+    try:
+        swarm = client.services.get(swarm_name)
+    except docker.errors.NotFound:
+        raise NotFound("The deployment's swarm service does not exist.")
+
+    if body.desired_state == "stop":
+        swarm.scale(0)
+        deployment.status = DeploymentStatus.SLEEPING.value
+    else:
+        swarm.scale(1)
+        deployment.status = DeploymentStatus.HEALTHY.value
+
+    await db.commit()
+    await db.refresh(deployment, ["queued_at"])
+    return DeploymentSchema.from_deployment(deployment)
 
 
 @router.patch(

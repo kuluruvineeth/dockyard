@@ -109,6 +109,10 @@ export interface paths {
     /** Archive Docker Service */
     delete: operations["archive_docker_service_api_projects__project_slug___env_slug__archive_service_docker__slug___delete"];
   };
+  "/api/projects/{project_slug}/{env_slug}/toggle-service/docker/{slug}/": {
+    /** Toggle Service */
+    put: operations["toggle_service_api_projects__project_slug___env_slug__toggle_service_docker__slug___put"];
+  };
   "/api/projects/{project_slug}/{env_slug}/request-service-changes/{slug}/": {
     /** Request Service Changes */
     put: operations["request_service_changes_api_projects__project_slug___env_slug__request_service_changes__slug___put"];
@@ -488,6 +492,14 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+    };
+    /** ToggleServiceRequest */
+    ToggleServiceRequest: {
+      /**
+       * Desired State
+       * @enum {string}
+       */
+      desired_state: "start" | "stop";
     };
     /** URLSchema */
     URLSchema: {
@@ -1328,6 +1340,41 @@ export interface operations {
       /** @description Successful Response */
       204: {
         content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Toggle Service */
+  toggle_service_api_projects__project_slug___env_slug__toggle_service_docker__slug___put: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ToggleServiceRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DeploymentSchema"];
+        };
       };
       /** @description Validation Error */
       422: {
