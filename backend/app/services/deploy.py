@@ -1,4 +1,5 @@
 import logging
+import tempfile
 import time
 from time import monotonic
 
@@ -15,7 +16,7 @@ from app import docker_helpers
 from app.config import settings
 from app.models import DeploymentStatus
 from app.models.healthcheck import HealthCheck, HealthCheckType
-from app.services import proxy
+from app.services import git_build, proxy
 from app.session import now
 
 _logger = logging.getLogger("dockyard.deploy")
@@ -81,6 +82,32 @@ def build_service_snapshot(service) -> dict:
             for c in service.configs
         ],
     }
+
+
+def build_git_image(service, deployment) -> str:
+    image_tag = (
+        f"dky-build-{service.id.rsplit('_', 1)[-1]}:{deployment.unprefixed_hash}"
+    )
+    options = service.dockerfile_builder_options or {}
+    dockerfile_path = options.get("dockerfile_path", "./Dockerfile")
+    with tempfile.TemporaryDirectory() as build_dir:
+        head_sha = git_build.clone_git_repository(
+            service.repository_url, service.branch_name, build_dir
+        )
+        # A manual deploy has no commit attached to it — the clone is the only
+        # place that knows which one is actually being built.
+        if head_sha and not deployment.commit_sha:
+            deployment.commit_sha = head_sha
+        git_build.build_docker_image(
+            build_dir,
+            dockerfile_path,
+            image_tag,
+            build_args={
+                "COMMIT_SHA": deployment.commit_sha or "",
+                "BUILT_AT": now().isoformat(timespec="seconds"),
+            },
+        )
+    return image_tag
 
 
 def create_docker_volumes_for_deployment(service) -> None:
@@ -405,6 +432,20 @@ async def mark_deployment_failed(db, deployment, reason: str) -> None:
 
 
 async def prepare_deployment_image(db, service, deployment) -> str:
+    if service.type == "GIT_REPOSITORY":
+        deployment.status = DeploymentStatus.BUILDING.value
+        if deployment.started_at is None:
+            deployment.started_at = now()
+        deployment.build_started_at = now()
+        await db.commit()
+        try:
+            image = build_git_image(service, deployment)
+        except Exception as error:  # noqa: BLE001
+            raise TerminalDeployError(f"Build failed: {error}") from error
+        deployment.build_finished_at = now()
+        await db.commit()
+        return image
+
     if service.image is None:
         raise TerminalDeployError("No image to deploy.")
     return service.image

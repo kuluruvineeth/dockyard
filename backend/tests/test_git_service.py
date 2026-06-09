@@ -74,3 +74,55 @@ class TestCreateGitService:
             json={"slug": "docs", "repository_url": REPO, "branch_name": "main"},
         )
         assert response.status_code == 404
+
+
+def _deploy_url(project_slug, slug, env_slug="production"):
+    return f"/api/projects/{project_slug}/{env_slug}/deploy-service/git/{slug}/"
+
+
+class TestDeployGitService:
+    async def test_deploy_git_service_builds_and_deploys(
+        self, auth_client, fake_docker
+    ):
+        p = await _make_project(auth_client)
+        await auth_client.post(
+            _create_url(p),
+            json={"slug": "docs", "repository_url": REPO, "branch_name": "main"},
+        )
+        response = await auth_client.put(_deploy_url(p, "docs"))
+        assert response.status_code == 200
+        assert response.json()["status"] == "HEALTHY"
+
+        services = fake_docker.services.list()
+        assert len(services) == 1
+        assert services[0].image.startswith("dky-build-")
+
+    async def test_deploy_git_service_applies_git_source(self, auth_client):
+        p = await _make_project(auth_client)
+        await auth_client.post(
+            _create_url(p),
+            json={"slug": "docs", "repository_url": REPO, "branch_name": "main"},
+        )
+        await auth_client.put(_deploy_url(p, "docs"))
+        details = await auth_client.get(
+            f"/api/projects/{p}/production/service-details/docs/"
+        )
+        assert details.json()["repository_url"] == REPO
+        assert details.json()["branch_name"] == "main"
+        assert len(details.json()["unapplied_changes"]) == 0
+
+    async def test_build_failure_marks_deployment_failed(
+        self, auth_client, fake_git_build
+    ):
+        def boom(url, branch, dest):
+            raise RuntimeError("clone failed")
+
+        fake_git_build.clone_git_repository = boom
+        p = await _make_project(auth_client)
+        await auth_client.post(
+            _create_url(p),
+            json={"slug": "docs", "repository_url": REPO, "branch_name": "main"},
+        )
+        response = await auth_client.put(_deploy_url(p, "docs"))
+        assert response.status_code == 200
+        assert response.json()["status"] == "FAILED"

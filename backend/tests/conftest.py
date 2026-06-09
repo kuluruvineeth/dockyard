@@ -12,6 +12,7 @@ from app import session as session_module
 from app import throttling as throttling_module
 from app.main import app
 from app.models import Base, User
+from app.services import git_build as git_build_module
 from tests.fakes import FakeCaddyClient, FakeDockerClient
 
 # In memory, and never on disk, so the suite can neither wipe a running dev
@@ -56,6 +57,21 @@ def fake_git(monkeypatch):
         git_helpers_module, "check_if_git_repository_exists", fake_check
     )
     return git_helpers_module
+
+
+@pytest.fixture(autouse=True)
+def fake_git_build(monkeypatch):
+    monkeypatch.setattr(
+        git_build_module,
+        "clone_git_repository",
+        lambda url, branch, dest: "abc1234fakecommitsha",
+    )
+    monkeypatch.setattr(
+        git_build_module,
+        "build_docker_image",
+        lambda context_dir, dockerfile_path, image_tag, build_args=None: image_tag,
+    )
+    return git_build_module
 
 
 @pytest_asyncio.fixture

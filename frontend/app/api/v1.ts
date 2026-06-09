@@ -121,6 +121,10 @@ export interface paths {
     /** Create Git Service */
     post: operations["create_git_service_api_projects__project_slug___env_slug__create_service_git__post"];
   };
+  "/api/projects/{project_slug}/{env_slug}/deploy-service/git/{slug}/": {
+    /** Deploy Git Service View */
+    put: operations["deploy_git_service_view_api_projects__project_slug___env_slug__deploy_service_git__slug___put"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -1421,6 +1425,36 @@ export interface operations {
       201: {
         content: {
           "application/json": components["schemas"]["ServiceSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Deploy Git Service View */
+  deploy_git_service_view_api_projects__project_slug___env_slug__deploy_service_git__slug___put: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DeploymentSchema"];
         };
       };
       /** @description Validation Error */

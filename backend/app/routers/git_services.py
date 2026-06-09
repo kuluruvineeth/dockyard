@@ -10,6 +10,7 @@ from app.errors import ResourceConflict, ValidationException
 from app.models import (
     ChangeField,
     ChangeType,
+    Deployment,
     DeploymentChange,
     Service,
     ServiceType,
@@ -18,8 +19,15 @@ from app.models.base import generate_id
 from app.routers.docker_services import (
     get_environment_or_404,
     get_project_or_404,
+    get_service_or_404,
 )
-from app.schemas.services import GitServiceCreateRequest, ServiceSchema
+from app.schemas.services import (
+    DeploymentSchema,
+    GitServiceCreateRequest,
+    ServiceSchema,
+)
+from app.services.deploy import build_service_snapshot
+from app.temporal.client import schedule_deploy_docker_service
 
 router = APIRouter()
 fake = Faker()
@@ -107,3 +115,32 @@ async def create_git_service(
 
     await db.refresh(service, ["created_at", "updated_at"])
     return ServiceSchema.from_service(service)
+
+
+@router.put(
+    "/api/projects/{project_slug}/{env_slug}/deploy-service/git/{slug}/",
+    response_model=DeploymentSchema,
+)
+async def deploy_git_service_view(
+    project_slug: str, env_slug: str, slug: str, user: CurrentUser, db: DBSession
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+
+    slot = Deployment.get_next_deployment_slot(service.latest_production_deployment)
+    deployment = Deployment(
+        id=generate_id("dpl_git_"),
+        service_id=service.id,
+        slot=slot,
+        commit_message="update service",
+    )
+    service.deployments.append(deployment)
+    service.apply_pending_changes(deployment)
+    deployment.service_snapshot = build_service_snapshot(service)
+    await db.commit()
+
+    await schedule_deploy_docker_service(db, service, environment, deployment)
+
+    await db.refresh(deployment, ["queued_at"])
+    return DeploymentSchema.from_deployment(deployment)
