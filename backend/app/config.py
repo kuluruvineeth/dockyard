@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     worker_task_queue: str | None = Field(
         default=None, alias="TEMPORALIO_WORKER_TASK_QUEUE"
     )
+    force_inline_tasks: bool | None = Field(
+        default=None, alias="DOCKYARD_RUN_TASKS_INLINE"
+    )
 
     @computed_field
     @property
@@ -61,6 +64,19 @@ class Settings(BaseSettings):
     @property
     def temporalio_task_queue(self) -> str:
         return self.worker_task_queue or self.main_task_queue
+
+    @computed_field
+    @property
+    def run_tasks_inline(self) -> bool:
+        # Tests always run inline so the suite needs no Temporal server. Every
+        # other environment dispatches to Temporal, so local development
+        # exercises the same path as production. DOCKYARD_RUN_TASKS_INLINE
+        # overrides this for a machine that cannot run the worker.
+        if self.testing:
+            return True
+        if self.force_inline_tasks is not None:
+            return self.force_inline_tasks
+        return False
 
     @computed_field
     @property

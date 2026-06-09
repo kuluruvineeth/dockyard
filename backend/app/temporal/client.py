@@ -3,8 +3,10 @@ import logging
 from temporalio.client import Client
 
 from app.config import settings
+from app.models import DeploymentStatus
 from app.services import deploy as deploy_service
 from app.services import networks
+from app.session import now
 from app.temporal.workflows import (
     CreateProjectResourcesWorkflow,
     DeployDockerServiceWorkflow,
@@ -29,7 +31,7 @@ async def schedule_create_project_resources(
 ) -> None:
     payload = {"project_id": project_id, "production_env_id": production_env_id}
 
-    if settings.testing:
+    if settings.run_tasks_inline:
         try:
             networks.create_project_network(project_id, production_env_id)
         except Exception as error:  # noqa: BLE001
@@ -49,7 +51,7 @@ async def schedule_create_project_resources(
 
 
 async def schedule_deploy_docker_service(db, service, environment, deployment) -> None:
-    if settings.testing:
+    if settings.run_tasks_inline:
         await deploy_service.deploy_docker_service(db, service, environment, deployment)
         return
 
@@ -63,3 +65,7 @@ async def schedule_deploy_docker_service(db, service, environment, deployment) -
         )
     except Exception as error:  # noqa: BLE001
         _logger.warning("could not start DeployDockerServiceWorkflow: %s", error)
+        deployment.status = DeploymentStatus.FAILED.value
+        deployment.status_reason = f"Could not reach the deployment scheduler: {error}"
+        deployment.finished_at = now()
+        await db.commit()
