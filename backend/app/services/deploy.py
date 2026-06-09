@@ -12,10 +12,11 @@ from docker.types import (
     Resources,
     RestartPolicy,
 )
+from sqlalchemy import select
 
 from app import docker_helpers
 from app.config import settings
-from app.models import DeploymentStatus
+from app.models import DeploymentStatus, SharedRegistryCredentials
 from app.models.healthcheck import HealthCheck, HealthCheckType
 from app.services import git_build, proxy
 from app.session import now
@@ -84,6 +85,27 @@ def build_service_snapshot(service) -> dict:
             for c in service.configs
         ],
     }
+
+
+async def pull_private_image(db, service, image) -> None:
+    if not service.container_registry_credentials_id:
+        return
+    result = await db.execute(
+        select(SharedRegistryCredentials).where(
+            SharedRegistryCredentials.id == service.container_registry_credentials_id
+        )
+    )
+    credentials = result.scalar_one_or_none()
+    if credentials is None:
+        return
+    client = docker_helpers.get_docker_client()
+    client.images.pull(
+        image,
+        auth_config={
+            "username": credentials.username,
+            "password": credentials.password,
+        },
+    )
 
 
 def build_git_image(service, deployment) -> str:
@@ -467,6 +489,10 @@ async def prepare_deployment_image(db, service, deployment) -> str:
 
     if service.image is None:
         raise TerminalDeployError("No image to deploy.")
+    try:
+        await pull_private_image(db, service, service.image)
+    except Exception as error:  # noqa: BLE001
+        _logger.warning("could not pull private image: %s", error)
     return service.image
 
 

@@ -9,6 +9,13 @@ class FakeContainers:
 
 
 class FakeImages:
+    def __init__(self):
+        self.pulled = []
+
+    def pull(self, image, auth_config=None, **kwargs):
+        self.pulled.append({"image": image, "auth_config": auth_config})
+        return image
+
     def search(self, term, limit=30):
         return [
             {"name": "caddy", "description": "Caddy web server"},

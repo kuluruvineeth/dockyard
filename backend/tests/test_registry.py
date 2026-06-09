@@ -87,3 +87,30 @@ class TestRegistryCredentials:
             },
         )
         assert response.status_code == 400
+
+    async def test_deploy_pulls_private_image_with_auth(self, auth_client, fake_docker):
+        p = await _make_project(auth_client)
+        created = await auth_client.post(
+            CRED_URL,
+            json={
+                "name": "a",
+                "url": "https://x",
+                "username": "me",
+                "password": "secret",
+            },
+        )
+        credential_id = created.json()["id"]
+        await auth_client.post(
+            f"/api/projects/{p}/production/create-service/docker/",
+            json={
+                "slug": "app",
+                "image": "private/img:latest",
+                "container_registry_credentials_id": credential_id,
+            },
+        )
+        await auth_client.put(
+            f"/api/projects/{p}/production/deploy-service/docker/app/"
+        )
+        assert len(fake_docker.images.pulled) == 1
+        assert fake_docker.images.pulled[0]["image"] == "private/img:latest"
+        assert fake_docker.images.pulled[0]["auth_config"]["username"] == "me"
