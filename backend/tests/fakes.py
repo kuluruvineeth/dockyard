@@ -160,6 +160,41 @@ class FakeCaddyClient:
         return FakeResponse(200, None)
 
 
+class FakeVolume:
+    def __init__(self, name, labels):
+        self.name = name
+        self.attrs = {"Labels": labels or {}}
+        self.removed = False
+
+    def remove(self, force=False):
+        self.removed = True
+
+
+class FakeVolumes:
+    def __init__(self):
+        self._volumes: dict[str, FakeVolume] = {}
+
+    def create(self, name, driver=None, labels=None, **kwargs):
+        volume = FakeVolume(name, labels)
+        self._volumes[name] = volume
+        return volume
+
+    def get(self, name):
+        if name not in self._volumes or self._volumes[name].removed:
+            raise docker.errors.NotFound(f"volume {name} not found")
+        return self._volumes[name]
+
+    def list(self, filters=None):
+        live = [v for v in self._volumes.values() if not v.removed]
+        if filters and "label" in filters:
+            labels = filters["label"]
+            labels = labels if isinstance(labels, list) else [labels]
+            for label in labels:
+                key, _, value = label.partition("=")
+                live = [v for v in live if v.attrs["Labels"].get(key) == value]
+        return live
+
+
 class FakeDockerClient:
     NONEXISTANT_IMAGE = NONEXISTANT_IMAGE
 
@@ -168,3 +203,4 @@ class FakeDockerClient:
         self.images = FakeImages()
         self.networks = FakeNetworks()
         self.services = FakeServices()
+        self.volumes = FakeVolumes()

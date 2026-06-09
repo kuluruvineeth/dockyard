@@ -123,6 +123,13 @@ export async function clientAction({
         host: Number(formData.get("host")),
         forwarded: Number(formData.get("forwarded"))
       };
+    } else if (changeField === "volumes") {
+      const hostPath = formData.get("host_path")?.toString()?.trim();
+      newValue = {
+        container_path: formData.get("container_path")?.toString(),
+        mode: formData.get("mode")?.toString() || "READ_WRITE",
+        host_path: hostPath ? hostPath : undefined
+      };
     } else if (changeField === "healthcheck") {
       const port = formData.get("associated_port")?.toString();
       newValue = {
@@ -417,6 +424,10 @@ export default function ServiceDetail({
   const pendingPorts = (service?.unapplied_changes ?? []).filter(
     (c) => c.field === "ports" && c.type === "ADD"
   );
+  const appliedVolumes = service?.volumes ?? [];
+  const pendingVolumes = (service?.unapplied_changes ?? []).filter(
+    (c) => c.field === "volumes" && c.type === "ADD"
+  );
   const pendingCount = service?.unapplied_changes.length ?? 0;
   const lastDeploy = deployments?.[0];
   const recentDeployments = deployments?.slice(0, 3) ?? [];
@@ -641,6 +652,48 @@ export default function ServiceDetail({
               })}
             </div>
             <NewEnvVariableForm actionData={actionData} isPending={isPending} />
+          </SectionCard>
+
+          <SectionCard
+            title="Volumes"
+            description="Persistent storage mounted into the service."
+          >
+            <div className="divide-y divide-border/60">
+              {appliedVolumes.length === 0 && pendingVolumes.length === 0 && (
+                <EmptyState>No volumes yet.</EmptyState>
+              )}
+              {appliedVolumes.map((vol) => (
+                <div
+                  key={vol.id}
+                  className="flex items-center gap-2 px-5 py-3 font-mono text-sm transition-colors duration-150 hover:bg-muted/40"
+                >
+                  <span className="truncate">{vol.host_path ?? vol.name}</span>
+                  <span className="flex-none text-grey">→</span>
+                  <span className="truncate text-grey">
+                    {vol.container_path}
+                  </span>
+                  <span className="flex-none text-xs text-grey">
+                    ({vol.mode})
+                  </span>
+                </div>
+              ))}
+              {pendingVolumes.map((change) => {
+                const value = change.new_value as {
+                  container_path?: string;
+                  mode?: string;
+                };
+                return (
+                  <PendingRow key={change.id}>
+                    {value.container_path}{" "}
+                    <span className="text-xs text-grey">({value.mode})</span>
+                  </PendingRow>
+                );
+              })}
+            </div>
+            <NewServiceVolumeForm
+              actionData={actionData}
+              isPending={isPending}
+            />
           </SectionCard>
 
           <SectionCard
@@ -902,6 +955,65 @@ export default function ServiceDetail({
         </div>
       )}
     </section>
+  );
+}
+
+function NewServiceVolumeForm({
+  actionData,
+  isPending
+}: {
+  actionData: Route.ComponentProps["actionData"];
+  isPending: boolean;
+}) {
+  const errors = getFormErrorsFromResponseData(
+    actionData && "changeError" in actionData
+      ? actionData.changeError
+      : undefined
+  );
+
+  return (
+    <Form method="POST" className={SECTION_FOOTER}>
+      <input type="hidden" name="change_field" value="volumes" />
+      <input type="hidden" name="change_type" value="ADD" />
+
+      {errors.new_value && (
+        <p className="text-sm text-destructive">{errors.new_value.join(" ")}</p>
+      )}
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-end">
+        <FieldSet required className="inline-flex flex-1 flex-col gap-1.5">
+          <FieldSetLabel>Mount path (in container)</FieldSetLabel>
+          <FieldSetInput
+            name="container_path"
+            placeholder="ex: /data"
+            className="font-mono"
+            required
+          />
+        </FieldSet>
+        <FieldSet className="inline-flex flex-1 flex-col gap-1.5">
+          <FieldSetLabel>Host path (optional)</FieldSetLabel>
+          <FieldSetInput
+            name="host_path"
+            placeholder="ex: /mnt/host"
+            className="font-mono"
+          />
+        </FieldSet>
+        <FieldSet className="inline-flex flex-col gap-1.5">
+          <FieldSetLabel>Mode</FieldSetLabel>
+          <select
+            name="mode"
+            defaultValue="READ_WRITE"
+            className="h-10 border border-border bg-background px-3 text-sm transition-colors duration-150 hover:border-foreground/15 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/70"
+          >
+            <option value="READ_WRITE">Read/Write</option>
+            <option value="READ_ONLY">Read only</option>
+          </select>
+        </FieldSet>
+        <SubmitButton isPending={isPending} variant="outline" className="w-fit">
+          {isPending ? "Adding…" : "Add"}
+        </SubmitButton>
+      </div>
+    </Form>
   );
 }
 

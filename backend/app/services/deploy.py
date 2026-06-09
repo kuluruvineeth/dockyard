@@ -82,6 +82,24 @@ def build_service_snapshot(service) -> dict:
     }
 
 
+def create_docker_volumes_for_deployment(service) -> None:
+    client = docker_helpers.get_docker_client()
+    for volume in service.volumes:
+        if volume.host_path:
+            continue
+        name = docker_helpers.get_volume_resource_name(volume.id)
+        try:
+            client.volumes.get(name)
+        except docker.errors.NotFound:
+            client.volumes.create(
+                name=name,
+                driver="local",
+                labels=docker_helpers.get_resource_labels(
+                    service.project_id, parent=service.id
+                ),
+            )
+
+
 class TerminalDeployError(Exception):
     """A failure this deployment can never recover from by being retried.
 
@@ -365,6 +383,7 @@ async def start_deployment_service(db, service, environment, deployment, image) 
         deployment.started_at = now()
     await db.commit()
 
+    create_docker_volumes_for_deployment(service)
     create_swarm_service_for_deployment(service, environment, deployment, image)
 
 
