@@ -9,7 +9,8 @@ import {
   PauseIcon,
   PlayIcon,
   RocketIcon,
-  Trash2Icon
+  Trash2Icon,
+  XIcon
 } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 import { Form, Link, redirect, useNavigation } from "react-router";
@@ -106,6 +107,26 @@ export async function clientAction({
     await queryClient.invalidateQueries({ queryKey: serviceKey });
     await queryClient.invalidateQueries({ queryKey: deploymentsKey });
     return { deployment: data };
+  }
+
+  if (formData.get("intent")?.toString() === "cancel-change") {
+    const { error } = await apiClient.DELETE(
+      "/api/projects/{project_slug}/{env_slug}/cancel-service-changes/{slug}/{change_id}/",
+      {
+        headers: { ...(await getCsrfTokenHeader()) },
+        params: {
+          path: {
+            ...path,
+            change_id: formData.get("change_id")?.toString() ?? ""
+          }
+        }
+      }
+    );
+    if (error) {
+      return { error };
+    }
+    await queryClient.invalidateQueries({ queryKey: serviceKey });
+    return { changeOk: true };
   }
 
   if (formData.get("intent")?.toString() === "toggle") {
@@ -347,13 +368,38 @@ function EmptyState({ children }: { children: ReactNode }) {
   return <p className="px-5 py-8 text-center text-sm text-grey">{children}</p>;
 }
 
-function PendingRow({ children }: { children: ReactNode }) {
+function PendingRow({
+  changeId,
+  children
+}: {
+  changeId: string;
+  children: ReactNode;
+}) {
   return (
     <div className="flex items-center justify-between gap-3 border-l-2 border-amber-500/60 bg-amber-500/[0.07] px-5 py-3 text-sm">
       <div className="min-w-0 font-mono">{children}</div>
-      <StatusBadge color="yellow" pingState="hidden" className="flex-none">
+      <PendingChange changeId={changeId} />
+    </div>
+  );
+}
+
+function PendingChange({ changeId }: { changeId: string }) {
+  return (
+    <div className="flex flex-none items-center gap-1.5">
+      <StatusBadge color="yellow" pingState="hidden">
         pending
       </StatusBadge>
+      <Form method="POST">
+        <input type="hidden" name="intent" value="cancel-change" />
+        <input type="hidden" name="change_id" value={changeId} />
+        <button
+          type="submit"
+          className="press-effect p-1 text-grey transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive"
+          title="Cancel change"
+        >
+          <XIcon size={13} />
+        </button>
+      </Form>
     </div>
   );
 }
@@ -472,7 +518,7 @@ export default function ServiceDetail({
 
   const SourceIcon = isGitService ? GitBranchIcon : PackageIcon;
   const sourceText = isGitService
-    ? [repositoryUrl, branchName].filter(Boolean).join("  ·  ") || "—"
+    ? [repositoryUrl, branchName].filter(Boolean).join("  ·") || "—"
     : sourceImage || "—";
 
   const appliedUrls = service?.urls ?? [];
@@ -511,7 +557,7 @@ export default function ServiceDetail({
           to={`/project/${params.projectSlug}/${params.envSlug}`}
           className="inline-flex w-fit items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-grey transition-colors duration-150 hover:text-foreground"
         >
-          <ArrowLeftIcon size={12} strokeWidth={2} /> {params.projectSlug} /{" "}
+          <ArrowLeftIcon size={12} strokeWidth={2} /> {params.projectSlug} /{""}
           {params.envSlug}
         </Link>
         <div className="flex min-w-0 flex-col gap-2.5">
@@ -532,7 +578,7 @@ export default function ServiceDetail({
 
       {deployErrors && (
         <div className="border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          Deploy failed: {deployErrors.errors.map((e) => e.detail).join(" ")}
+          Deploy failed: {deployErrors.errors.map((e) => e.detail).join("")}
         </div>
       )}
 
@@ -575,7 +621,7 @@ export default function ServiceDetail({
                 <input type="hidden" name="change_type" value="UPDATE" />
                 {changeErrors.new_value && (
                   <p className="text-sm text-destructive">
-                    {changeErrors.new_value.join(" ")}
+                    {changeErrors.new_value.join("")}
                   </p>
                 )}
                 <FieldSet required className="flex flex-col gap-1.5">
@@ -668,7 +714,7 @@ export default function ServiceDetail({
                   base_path?: string;
                 };
                 return (
-                  <PendingRow key={change.id}>
+                  <PendingRow key={change.id} changeId={change.id}>
                     {value.domain}
                     <span className="text-grey">{value.base_path}</span>
                   </PendingRow>
@@ -702,9 +748,11 @@ export default function ServiceDetail({
                   forwarded?: number;
                 };
                 return (
-                  <PendingRow key={change.id}>
-                    <span className="tabular-nums">{value.host}</span>{" "}
-                    <span className="text-grey">→</span>{" "}
+                  <PendingRow key={change.id} changeId={change.id}>
+                    <span className="tabular-nums">{value.host}</span>
+                    {""}
+                    <span className="text-grey">→</span>
+                    {""}
                     <span className="tabular-nums">{value.forwarded}</span>
                   </PendingRow>
                 );
@@ -739,8 +787,9 @@ export default function ServiceDetail({
                   value?: string;
                 };
                 return (
-                  <PendingRow key={change.id}>
-                    {value.key} <span className="text-grey">=</span>{" "}
+                  <PendingRow key={change.id} changeId={change.id}>
+                    {value.key} <span className="text-grey">=</span>
+                    {""}
                     <span className="text-grey">{value.value}</span>
                   </PendingRow>
                 );
@@ -778,8 +827,9 @@ export default function ServiceDetail({
                   mode?: string;
                 };
                 return (
-                  <PendingRow key={change.id}>
-                    {value.container_path}{" "}
+                  <PendingRow key={change.id} changeId={change.id}>
+                    {value.container_path}
+                    {""}
                     <span className="text-xs text-grey">({value.mode})</span>
                   </PendingRow>
                 );
@@ -817,8 +867,9 @@ export default function ServiceDetail({
                   mount_path?: string;
                 };
                 return (
-                  <PendingRow key={change.id}>
-                    {value.name} <span className="text-grey">→</span>{" "}
+                  <PendingRow key={change.id} changeId={change.id}>
+                    {value.name} <span className="text-grey">→</span>
+                    {""}
                     {value.mount_path}
                   </PendingRow>
                 );
@@ -840,7 +891,7 @@ export default function ServiceDetail({
 
               {changeErrors.new_value && (
                 <p className="text-sm text-destructive">
-                  {changeErrors.new_value.join(" ")}
+                  {changeErrors.new_value.join("")}
                 </p>
               )}
 
@@ -1044,7 +1095,7 @@ export default function ServiceDetail({
             {pendingCount > 0 && (
               <a
                 href="#config"
-                className="flex items-center justify-between gap-2 border-l-2 border-amber-500/60 bg-amber-500/[0.07] px-3 py-2 text-[13px] text-amber-700 transition-colors duration-150 hover:bg-amber-500/[0.12] dark:text-amber-500"
+                className="flex items-center justify-between gap-2 border-l-2 border-amber-500/60 bg-amber-500/[0.07] px-3 py-2 text-[13px] text-amber-700 transition-colors duration-150 hover:bg-amber-500/[0.12] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/70 dark:text-amber-500"
               >
                 <span className="tabular-nums">
                   {pendingCount} pending change{pendingCount > 1 ? "s" : ""}
@@ -1200,7 +1251,7 @@ function NewServiceConfigForm({
       <input type="hidden" name="change_type" value="ADD" />
 
       {errors.new_value && (
-        <p className="text-sm text-destructive">{errors.new_value.join(" ")}</p>
+        <p className="text-sm text-destructive">{errors.new_value.join("")}</p>
       )}
 
       <div className="flex flex-col gap-4 md:flex-row">
@@ -1257,7 +1308,7 @@ function NewServiceVolumeForm({
       <input type="hidden" name="change_type" value="ADD" />
 
       {errors.new_value && (
-        <p className="text-sm text-destructive">{errors.new_value.join(" ")}</p>
+        <p className="text-sm text-destructive">{errors.new_value.join("")}</p>
       )}
 
       <div className="flex flex-col gap-4 md:flex-row md:items-end">
@@ -1316,7 +1367,7 @@ function NewServicePortForm({
       <input type="hidden" name="change_type" value="ADD" />
 
       {errors.new_value && (
-        <p className="text-sm text-destructive">{errors.new_value.join(" ")}</p>
+        <p className="text-sm text-destructive">{errors.new_value.join("")}</p>
       )}
 
       <div className="flex flex-col gap-4 md:flex-row md:items-end">
@@ -1365,7 +1416,7 @@ function NewEnvVariableForm({
       <input type="hidden" name="change_type" value="ADD" />
 
       {errors.new_value && (
-        <p className="text-sm text-destructive">{errors.new_value.join(" ")}</p>
+        <p className="text-sm text-destructive">{errors.new_value.join("")}</p>
       )}
 
       <div className="flex flex-col gap-4 md:flex-row md:items-end">
@@ -1413,7 +1464,7 @@ function NewServiceURLForm({
       <input type="hidden" name="change_type" value="ADD" />
 
       {errors.new_value && (
-        <p className="text-sm text-destructive">{errors.new_value.join(" ")}</p>
+        <p className="text-sm text-destructive">{errors.new_value.join("")}</p>
       )}
 
       <FieldSet required className="inline-flex flex-1 flex-col gap-1.5">
