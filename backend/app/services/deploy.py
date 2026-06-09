@@ -85,9 +85,11 @@ def build_service_snapshot(service) -> dict:
 
 
 def build_git_image(service, deployment) -> str:
+    # docker requires the repository name to be lowercase
     image_tag = (
-        f"dky-build-{service.id.rsplit('_', 1)[-1]}:{deployment.unprefixed_hash}"
-    )
+        f"dky-build-{service.id.rsplit('_', 1)[-1]}"
+        f":{deployment.unprefixed_hash}"
+    ).lower()
     options = service.dockerfile_builder_options or {}
     dockerfile_path = options.get("dockerfile_path", "./Dockerfile")
     with tempfile.TemporaryDirectory() as build_dir:

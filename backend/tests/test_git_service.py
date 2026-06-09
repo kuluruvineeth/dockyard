@@ -96,6 +96,8 @@ class TestDeployGitService:
         services = fake_docker.services.list()
         assert len(services) == 1
         assert services[0].image.startswith("dky-build-")
+        # docker requires the repository name to be lowercase
+        assert services[0].image == services[0].image.lower()
 
     async def test_deploy_git_service_applies_git_source(self, auth_client):
         p = await _make_project(auth_client)
