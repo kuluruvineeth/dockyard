@@ -46,6 +46,8 @@ class TestProjectListView:
         project = next(p for p in response.json() if p["slug"] == "demo")
         assert project["total_services"] == 2
         assert project["healthy_services"] == 1
+        assert project["total_stack_services"] == 0
+        assert project["healthy_stack_services"] == 0
 
         detail = await auth_client.get("/api/projects/demo/")
         assert detail.json()["total_services"] == 2

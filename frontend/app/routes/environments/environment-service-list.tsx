@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   BoxIcon,
   GitBranchIcon,
+  LayersIcon,
   MoreHorizontalIcon,
   PlusIcon,
   Trash2Icon,
@@ -151,6 +152,7 @@ function EnvironmentServiceListSkeleton() {
           <div className="h-4 w-72 bg-muted" />
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <div className="h-9 w-28 bg-muted" />
           <div className="h-9 w-36 bg-muted" />
           <div className="h-9 w-44 bg-muted" />
         </div>
@@ -241,6 +243,11 @@ export default function EnvironmentServiceList({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Link to={`/project/${projectSlug}/${envSlug}/create-compose-stack`}>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <LayersIcon size={15} strokeWidth={1.75} /> Compose
+            </Button>
+          </Link>
           <Link to={`/project/${projectSlug}/${envSlug}/create-service/git`}>
             <Button variant="outline" size="sm" className="gap-1.5">
               <GitBranchIcon size={15} strokeWidth={1.75} /> New git service

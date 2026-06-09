@@ -44,13 +44,17 @@ async def _service_counts(db, project_ids):
     if not project_ids:
         return {}
 
+    is_regular = Service.compose_stack_id.is_(None)
+    is_stack = Service.compose_stack_id.is_not(None)
     is_healthy = Deployment.status == DeploymentStatus.HEALTHY.value
 
     query = (
         select(
             Service.project_id,
-            func.count(Service.id),
-            func.sum(case((is_healthy, 1), else_=0)),
+            func.sum(case((is_regular, 1), else_=0)),
+            func.sum(case((and_(is_regular, is_healthy), 1), else_=0)),
+            func.sum(case((is_stack, 1), else_=0)),
+            func.sum(case((and_(is_stack, is_healthy), 1), else_=0)),
         )
         .select_from(Service)
         .outerjoin(
@@ -69,6 +73,8 @@ async def _service_counts(db, project_ids):
         row[0]: {
             "total_services": row[1] or 0,
             "healthy_services": row[2] or 0,
+            "total_stack_services": row[3] or 0,
+            "healthy_stack_services": row[4] or 0,
         }
         for row in result.all()
     }

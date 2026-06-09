@@ -153,6 +153,10 @@ export interface paths {
     /** Delete Registry Credentials */
     delete: operations["delete_registry_credentials_api_registry_credentials__credential_id___delete"];
   };
+  "/api/projects/{project_slug}/{env_slug}/create-compose-stack/": {
+    /** Create Compose Stack */
+    post: operations["create_compose_stack_api_projects__project_slug___env_slug__create_compose_stack__post"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -201,6 +205,27 @@ export interface components {
       /** Applied */
       applied: boolean;
     };
+    /** ComposeStackSchema */
+    ComposeStackSchema: {
+      /** Id */
+      id: string;
+      /** Slug */
+      slug: string;
+      /** Services */
+      services: components["schemas"]["ComposeStackServiceSchema"][];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /** ComposeStackServiceSchema */
+    ComposeStackServiceSchema: {
+      /** Id */
+      id: string;
+      /** Slug */
+      slug: string;
+    };
     /** ConfigSchema */
     ConfigSchema: {
       /** Id */
@@ -215,6 +240,13 @@ export interface components {
       language: string;
       /** Version */
       version: number;
+    };
+    /** CreateComposeStackRequest */
+    CreateComposeStackRequest: {
+      /** Slug */
+      slug: string;
+      /** Contents */
+      contents: string;
     };
     /** CreateEnvironmentRequest */
     CreateEnvironmentRequest: {
@@ -1782,6 +1814,40 @@ export interface operations {
       /** @description Successful Response */
       204: {
         content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Create Compose Stack */
+  create_compose_stack_api_projects__project_slug___env_slug__create_compose_stack__post: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateComposeStackRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["ComposeStackSchema"];
+        };
       };
       /** @description Validation Error */
       422: {

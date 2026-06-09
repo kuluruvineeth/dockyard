@@ -94,6 +94,11 @@ class Service(Base, TimestampedModel):
     environment_id: Mapped[str] = mapped_column(
         ForeignKey("environment.id", ondelete="CASCADE"), index=True
     )
+    compose_stack_id: Mapped[str | None] = mapped_column(
+        ForeignKey("compose_stack.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     type: Mapped[str] = mapped_column(
         String(20), default=ServiceType.DOCKER_REGISTRY.value
     )

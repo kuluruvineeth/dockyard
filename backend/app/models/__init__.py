@@ -1,4 +1,5 @@
 from app.models.base import Base, TimestampedModel
+from app.models.compose_stack import ComposeStack
 from app.models.config import Config
 from app.models.deployment import (
     Deployment,
@@ -39,6 +40,7 @@ __all__ = [
     "SharedEnvVariable",
     "SharedRegistryCredentials",
     "RegistryType",
+    "ComposeStack",
     "Config",
     "EnvVariable",
     "Service",

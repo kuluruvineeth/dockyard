@@ -26,6 +26,10 @@ export default [
       "./routes/services/create-git-service.tsx"
     ),
     route(
+      "project/:projectSlug/:envSlug/create-compose-stack",
+      "./routes/services/create-compose-stack.tsx"
+    ),
+    route(
       "project/:projectSlug/:envSlug/services/:slug",
       "./routes/services/service-detail.tsx"
     )

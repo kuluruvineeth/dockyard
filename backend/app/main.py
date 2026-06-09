@@ -8,6 +8,7 @@ from app.middleware.csrf import CSRFMiddleware
 from app.middleware.session import SessionMiddleware
 from app.routers import (
     auth,
+    compose,
     docker,
     docker_services,
     git_services,
@@ -56,6 +57,7 @@ def create_app() -> FastAPI:
     app.include_router(docker_services.router)
     app.include_router(git_services.router)
     app.include_router(registry.router)
+    app.include_router(compose.router)
     return app
 
 

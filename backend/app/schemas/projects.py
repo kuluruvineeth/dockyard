@@ -39,6 +39,8 @@ class ProjectSchema(BaseModel):
         project: Project,
         healthy_services: int = 0,
         total_services: int = 0,
+        healthy_stack_services: int = 0,
+        total_stack_services: int = 0,
     ) -> "ProjectSchema":
         return cls(
             id=project.id,
@@ -52,6 +54,8 @@ class ProjectSchema(BaseModel):
             ],
             healthy_services=healthy_services,
             total_services=total_services,
+            healthy_stack_services=healthy_stack_services,
+            total_stack_services=total_stack_services,
         )
 
 

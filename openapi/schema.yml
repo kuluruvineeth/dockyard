@@ -1295,6 +1295,46 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/projects/{project_slug}/{env_slug}/create-compose-stack/:
+    post:
+      summary: Create Compose Stack
+      operationId: create_compose_stack_api_projects__project_slug___env_slug__create_compose_stack__post
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateComposeStackRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComposeStackSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
 components:
   schemas:
     AuthedResponse:
@@ -1385,6 +1425,43 @@ components:
       - new_value
       - applied
       title: ChangeSchema
+    ComposeStackSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        slug:
+          type: string
+          title: Slug
+        services:
+          items:
+            $ref: '#/components/schemas/ComposeStackServiceSchema'
+          type: array
+          title: Services
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - slug
+      - services
+      - created_at
+      title: ComposeStackSchema
+    ComposeStackServiceSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        slug:
+          type: string
+          title: Slug
+      type: object
+      required:
+      - id
+      - slug
+      title: ComposeStackServiceSchema
     ConfigSchema:
       properties:
         id:
@@ -1414,6 +1491,23 @@ components:
       - language
       - version
       title: ConfigSchema
+    CreateComposeStackRequest:
+      properties:
+        slug:
+          type: string
+          maxLength: 40
+          minLength: 1
+          pattern: ^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$
+          title: Slug
+        contents:
+          type: string
+          minLength: 1
+          title: Contents
+      type: object
+      required:
+      - slug
+      - contents
+      title: CreateComposeStackRequest
     CreateEnvironmentRequest:
       properties:
         name:
