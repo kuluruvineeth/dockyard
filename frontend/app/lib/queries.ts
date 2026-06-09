@@ -124,6 +124,32 @@ export const serviceQueries = {
         pollWhileInFlight([
           (query.state.data as { status?: string } | undefined)?.status
         ])
+    }),
+  deployments: (projectSlug: string, envSlug: string, slug: string) =>
+    queryOptions({
+      queryKey: ["DEPLOYMENTS", projectSlug, envSlug, slug] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await apiClient.GET(
+          "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/",
+          {
+            params: {
+              path: {
+                project_slug: projectSlug,
+                env_slug: envSlug,
+                slug
+              }
+            },
+            signal
+          }
+        );
+        return data?.results ?? [];
+      },
+      refetchInterval: (query) =>
+        pollWhileInFlight(
+          ((query.state.data as Array<{ status?: string }> | undefined) ?? [])
+            .slice(0, 3)
+            .map((d) => d.status)
+        )
     })
 };
 

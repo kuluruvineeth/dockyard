@@ -7,10 +7,11 @@ import {
   PackageIcon,
   RocketIcon
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Form, Link, useNavigation } from "react-router";
 import { apiClient } from "~/api/client";
-import { StatusBadge } from "~/components/status-badge";
+import { DockerDeploymentCard } from "~/components/deployment-cards";
+import { StatusBadge, type StatusBadgeColor } from "~/components/status-badge";
 import { SubmitButton } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import {
@@ -58,6 +59,12 @@ export async function clientAction({
   ).queryKey;
 
   const formData = await request.formData();
+  const deploymentsKey = serviceQueries.deployments(
+    params.projectSlug,
+    params.envSlug,
+    params.slug
+  ).queryKey;
+
   const changeField = formData.get("change_field")?.toString();
 
   if (changeField) {
@@ -126,11 +133,78 @@ export async function clientAction({
     return { error };
   }
   await queryClient.invalidateQueries({ queryKey: serviceKey });
+  await queryClient.invalidateQueries({ queryKey: deploymentsKey });
   return { deployment: data };
+}
+
+const STATUS_DISPLAY: Record<
+  string,
+  { color: StatusBadgeColor; label: string }
+> = {
+  HEALTHY: { color: "green", label: "Healthy" },
+  UNHEALTHY: { color: "red", label: "Unhealthy" },
+  FAILED: { color: "red", label: "Failed" },
+  STARTING: { color: "blue", label: "Starting" },
+  BUILDING: { color: "blue", label: "Building" },
+  PREPARING: { color: "blue", label: "Preparing" },
+  CANCELLED: { color: "gray", label: "Cancelled" },
+  SLEEPING: { color: "gray", label: "Sleeping" },
+  QUEUED: { color: "yellow", label: "Queued" },
+  REMOVED: { color: "gray", label: "Removed" }
+};
+
+function statusFor(status?: string): {
+  color: StatusBadgeColor;
+  label: string;
+} {
+  if (!status) return { color: "gray", label: "No deployment" };
+  return STATUS_DISPLAY[status] ?? { color: "gray", label: status };
 }
 
 const SECTION_FOOTER =
   "flex flex-col gap-4 border-t border-border/60 bg-muted/25 px-5 py-5";
+
+const DOT_BG: Record<StatusBadgeColor, string> = {
+  green: "bg-green-600",
+  red: "bg-red-600",
+  yellow: "bg-yellow-600",
+  blue: "bg-blue-600",
+  gray: "bg-gray-500"
+};
+
+function timeAgo(iso?: string | null): string {
+  if (!iso) return "never";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "never";
+  const secs = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
+
+function dayLabel(iso?: string | null): string {
+  if (!iso) return "Unknown";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "Unknown";
+  const now = new Date();
+  const startOfDay = (x: Date) =>
+    new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOfDay(now) - startOfDay(d)) / 86_400_000);
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: d.getFullYear() === now.getFullYear() ? undefined : "numeric"
+  });
+}
 
 function SectionCard({
   title,
@@ -227,6 +301,22 @@ function ServiceDetailSkeleton() {
             <div className="h-9 w-full bg-muted" />
             <div className="h-9 w-full bg-muted" />
           </div>
+          <div className="border border-border bg-card">
+            <div className="border-b border-border/60 px-5 py-4">
+              <div className="h-4 w-28 bg-muted" />
+            </div>
+            <div className="divide-y divide-border/60">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between gap-3 px-5 py-3"
+                >
+                  <div className="h-3 w-24 bg-muted" />
+                  <div className="h-3 w-12 bg-muted" />
+                </div>
+              ))}
+            </div>
+          </div>
         </aside>
       </div>
     </section>
@@ -241,6 +331,9 @@ export default function ServiceDetail({
   const isPending = navigation.state !== "idle";
   const { data: service } = useQuery(
     serviceQueries.single(params.projectSlug, params.envSlug, params.slug)
+  );
+  const { data: deployments } = useQuery(
+    serviceQueries.deployments(params.projectSlug, params.envSlug, params.slug)
   );
 
   if (!service) return <ServiceDetailSkeleton />;
@@ -257,6 +350,13 @@ export default function ServiceDetail({
       ? actionData.changeError
       : undefined
   );
+
+  const productionDeployment = deployments?.find(
+    (d) => d.is_current_production
+  );
+  const headerStatus = productionDeployment
+    ? statusFor(productionDeployment.status)
+    : null;
 
   const deployment =
     actionData && "deployment" in actionData ? actionData.deployment : null;
@@ -279,6 +379,8 @@ export default function ServiceDetail({
     (c) => c.field === "ports" && c.type === "ADD"
   );
   const pendingCount = service?.unapplied_changes.length ?? 0;
+  const lastDeploy = deployments?.[0];
+  const recentDeployments = deployments?.slice(0, 3) ?? [];
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-8">
@@ -587,9 +689,15 @@ export default function ServiceDetail({
         <aside className="order-first flex flex-col gap-4 lg:order-last lg:sticky lg:top-20 lg:self-start">
           <Card className="flex flex-col gap-4 p-5">
             <div className="flex items-center justify-between gap-3">
-              <StatusBadge color="gray" className="px-3 py-1 text-[13px]">
-                No deployment
+              <StatusBadge
+                color={headerStatus?.color ?? "gray"}
+                className="px-3 py-1 text-[13px]"
+              >
+                {headerStatus?.label ?? "No deployment"}
               </StatusBadge>
+              <span className="font-mono text-xs tabular-nums text-grey">
+                {lastDeploy ? timeAgo(lastDeploy.queued_at) : ""}
+              </span>
             </div>
             <div className="flex min-w-0 items-center gap-1.5 font-mono text-[13px] text-grey">
               <SourceIcon size={13} strokeWidth={1.75} className="flex-none" />
@@ -640,8 +748,87 @@ export default function ServiceDetail({
               </p>
             )}
           </Card>
+
+          {deployments && deployments.length > 0 && (
+            <SectionCard
+              title="Deployments"
+              action={
+                deployments.length > 3 ? (
+                  <a
+                    href="#deployments"
+                    className="text-xs font-medium text-grey transition-colors duration-150 hover:text-foreground"
+                  >
+                    View all
+                  </a>
+                ) : undefined
+              }
+            >
+              <div className="divide-y divide-border/60">
+                {recentDeployments.map((dpl) => {
+                  const hash = dpl.id.split("_").pop() ?? "";
+                  const color = statusFor(dpl.status).color;
+                  return (
+                    <div
+                      key={dpl.id}
+                      className="flex items-center justify-between gap-3 px-5 py-3"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className={`size-2 flex-none rounded-full ${DOT_BG[color]}`}
+                        />
+                        <span className="truncate font-mono text-xs">
+                          {hash}
+                        </span>
+                      </div>
+                      <span className="flex-none font-mono text-xs tabular-nums text-grey">
+                        {timeAgo(dpl.queued_at)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+          )}
         </aside>
       </div>
+
+      {deployments && deployments.length > 0 && (
+        <div id="deployments" className="flex scroll-mt-20 flex-col gap-5">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-grey">
+              Deployment history
+            </h2>
+            <span className="font-mono text-xs tabular-nums text-grey">
+              {deployments.length}
+            </span>
+          </div>
+          <ol className="relative flex flex-col gap-3 before:absolute before:bottom-3 before:left-[7px] before:top-3 before:w-px before:bg-border before:content-['']">
+            {deployments.map((dpl, i) => {
+              const color = statusFor(dpl.status).color;
+              const label = dayLabel(dpl.queued_at);
+              const showHeader =
+                i === 0 || label !== dayLabel(deployments[i - 1].queued_at);
+              return (
+                <Fragment key={dpl.id}>
+                  {showHeader && (
+                    <li className="relative z-10 pl-8 pt-3 first:pt-0">
+                      <span className="bg-background pr-2 text-[11px] font-medium uppercase tracking-[0.16em] text-grey">
+                        {label}
+                      </span>
+                    </li>
+                  )}
+                  <li className="relative pl-8">
+                    <span
+                      className={`absolute left-[3px] top-6 size-2 rounded-full ring-4 ring-background ${DOT_BG[color]}`}
+                    />
+                    <DockerDeploymentCard deployment={dpl} />
+                  </li>
+                </Fragment>
+              );
+            })}
+          </ol>
+        </div>
+      )}
     </section>
   );
 }
