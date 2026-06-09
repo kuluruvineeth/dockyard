@@ -357,6 +357,29 @@ paths:
           content:
             application/json:
               schema: *id001
+    delete:
+      summary: Archive Project
+      operationId: archive_project_api_projects__slug___delete
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/projects/{project_slug}/environments/:
     post:
       summary: Create Environment

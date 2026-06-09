@@ -169,3 +169,34 @@ class TestProjectGetView:
     async def test_non_existent(self, auth_client):
         response = await auth_client.get("/api/projects/dky-ops/")
         assert response.status_code == 404
+
+
+class TestArchiveProject:
+    async def test_archive_project(self, auth_client, fake_docker):
+        await auth_client.post("/api/projects/", json={"slug": "demo"})
+        await auth_client.post(
+            "/api/projects/demo/production/create-service/docker/",
+            json={"slug": "app", "image": "redis:alpine"},
+        )
+        await auth_client.put(
+            "/api/projects/demo/production/deploy-service/docker/app/"
+        )
+        assert len(fake_docker.services.list()) == 1
+
+        response = await auth_client.delete("/api/projects/demo/")
+        assert response.status_code == 204
+
+        get = await auth_client.get("/api/projects/demo/")
+        assert get.status_code == 404
+        assert len(fake_docker.services.list()) == 0
+
+    async def test_archive_removes_project_networks(self, auth_client, fake_docker):
+        await auth_client.post("/api/projects/", json={"slug": "demo"})
+        assert len(fake_docker.networks.list()) > 0
+        response = await auth_client.delete("/api/projects/demo/")
+        assert response.status_code == 204
+        assert len(fake_docker.networks.list()) == 0
+
+    async def test_archive_non_existing_project(self, auth_client):
+        response = await auth_client.delete("/api/projects/nope/")
+        assert response.status_code == 404

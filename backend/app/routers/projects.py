@@ -1,10 +1,12 @@
 import logging
 
+import docker.errors
 from faker import Faker
 from fastapi import APIRouter, Response
 from sqlalchemy import and_, case, func, select
 from sqlalchemy.exc import IntegrityError
 
+from app import docker_helpers
 from app.constants import PRODUCTION_ENV_NAME
 from app.dependencies import CurrentUser, DBSession
 from app.errors import NotFound, ResourceConflict
@@ -16,7 +18,7 @@ from app.schemas.projects import (
     ProjectUpdateRequest,
     SimpleEnvironmentSchema,
 )
-from app.services import networks
+from app.services import networks, proxy
 from app.temporal.client import schedule_create_project_resources
 
 _logger = logging.getLogger("dockyard.projects")
@@ -145,6 +147,43 @@ async def update_project(
 
     result = await db.execute(select(Project).where(Project.id == project.id))
     return ProjectSchema.from_project(result.scalar_one())
+
+
+@router.delete("/api/projects/{slug}/", status_code=204)
+async def archive_project(slug: str, user: CurrentUser, db: DBSession):
+    project = await _get_project_or_404(db, user, slug)
+
+    services = (
+        (await db.execute(select(Service).where(Service.project_id == project.id)))
+        .scalars()
+        .all()
+    )
+
+    client = docker_helpers.get_docker_client()
+    for service in services:
+        for deployment in service.deployments:
+            swarm_name = docker_helpers.get_swarm_service_name_for_deployment(
+                deployment.unprefixed_hash, project.id, service.id
+            )
+            try:
+                client.services.get(swarm_name).remove()
+            except docker.errors.NotFound:
+                pass
+            except Exception as error:  # noqa: BLE001
+                _logger.warning("could not remove swarm service: %s", error)
+        try:
+            proxy.unexpose_service_from_http(service)
+        except Exception as error:  # noqa: BLE001
+            _logger.warning("could not unexpose service: %s", error)
+
+    try:
+        networks.remove_project_networks(project.id)
+    except Exception as error:  # noqa: BLE001
+        _logger.warning("could not remove project networks: %s", error)
+
+    await db.delete(project)
+    await db.commit()
+    return Response(status_code=204)
 
 
 @router.post(

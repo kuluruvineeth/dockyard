@@ -60,6 +60,8 @@ export interface paths {
     get: operations["get_project_api_projects__slug___get"];
     /** Update Project */
     put: operations["update_project_api_projects__slug___put"];
+    /** Archive Project */
+    delete: operations["archive_project_api_projects__slug___delete"];
   };
   "/api/projects/{project_slug}/environments/": {
     /** Create Environment */
@@ -898,6 +900,32 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["ProjectSchema"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Archive Project */
+  archive_project_api_projects__slug___delete: {
+    parameters: {
+      path: {
+        slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
       };
       /** @description Validation Error */
       422: {
