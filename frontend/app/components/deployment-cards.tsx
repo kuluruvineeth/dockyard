@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { RotateCcwIcon, ScrollTextIcon } from "lucide-react";
+import { ActivityIcon, RotateCcwIcon, ScrollTextIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Form } from "react-router";
 import type { ApiResponse } from "~/api/client";
@@ -46,7 +46,7 @@ function SlotBadge({ slot }: { slot: string }) {
   );
 }
 
-type Panel = "logs" | null;
+type Panel = "metrics" | "logs" | null;
 
 function SegButton({
   active,
@@ -91,12 +91,27 @@ export function DockerDeploymentCard({
   };
 
   const [panel, setPanel] = useState<Panel>(null);
+  const showMetrics = panel === "metrics";
   const showLogs = panel === "logs";
 
   const { data: logs, isLoading: logsLoading } = useQuery({
     ...serviceQueries.deploymentLogs(projectSlug, envSlug, serviceSlug, hash),
     enabled: showLogs
   });
+
+  const { data: metrics } = useQuery({
+    ...serviceQueries.deploymentMetrics(
+      projectSlug,
+      envSlug,
+      serviceSlug,
+      hash
+    ),
+    enabled: showMetrics,
+    refetchInterval: showMetrics ? 5000 : false
+  });
+  const latestMetric = metrics?.[metrics.length - 1];
+  const cpuSeries = metrics?.map((m) => m.cpu_percent) ?? [];
+  const memSeries = metrics?.map((m) => m.memory_bytes) ?? [];
 
   return (
     <Card
@@ -140,6 +155,14 @@ export function DockerDeploymentCard({
           <div className="flex items-center gap-2">
             <div className="inline-flex items-center gap-1 bg-muted p-1">
               <SegButton
+                active={showMetrics}
+                onClick={() =>
+                  setPanel((p) => (p === "metrics" ? null : "metrics"))
+                }
+              >
+                <ActivityIcon size={14} strokeWidth={1.75} /> Metrics
+              </SegButton>
+              <SegButton
                 active={showLogs}
                 onClick={() => setPanel((p) => (p === "logs" ? null : "logs"))}
               >
@@ -161,6 +184,36 @@ export function DockerDeploymentCard({
           </div>
         </div>
       </div>
+
+      {showMetrics &&
+        (latestMetric ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Metric
+              label="CPU"
+              value={`${latestMetric.cpu_percent.toFixed(1)}%`}
+              series={cpuSeries}
+              tone="hsl(var(--foreground))"
+            />
+            <Metric
+              label="Memory"
+              value={formatBytes(latestMetric.memory_bytes)}
+              series={memSeries}
+              tone="var(--chart-2)"
+            />
+            <Metric
+              label="Net I/O"
+              value={`${formatBytes(latestMetric.net_rx_bytes)} / ${formatBytes(latestMetric.net_tx_bytes)}`}
+            />
+            <Metric
+              label="Disk I/O"
+              value={`${formatBytes(latestMetric.disk_read_bytes)} / ${formatBytes(latestMetric.disk_writes_bytes)}`}
+            />
+          </div>
+        ) : (
+          <div className="border border-border bg-foreground/[0.015] p-4 text-[13px] text-grey">
+            No metrics yet (the deployment may not be running).
+          </div>
+        ))}
 
       {showLogs && (
         <div className="max-h-72 overflow-auto border border-white/10 bg-[#0a0a0a] font-mono text-xs leading-relaxed tabular-nums">
@@ -192,4 +245,75 @@ export function DockerDeploymentCard({
       )}
     </Card>
   );
+}
+
+function Metric({
+  label,
+  value,
+  series,
+  tone
+}: {
+  label: string;
+  value: string;
+  series?: number[];
+  tone?: string;
+}) {
+  return (
+    <Card className="flex flex-col gap-2 p-4">
+      <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-grey">
+        {label}
+      </span>
+      <span className="font-mono text-base tabular-nums text-foreground">
+        {value}
+      </span>
+      {series && series.length > 1 && (
+        <Sparkline data={series} tone={tone ?? "hsl(var(--foreground))"} />
+      )}
+    </Card>
+  );
+}
+
+function Sparkline({ data, tone }: { data: number[]; tone: string }) {
+  const width = 100;
+  const height = 24;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  const points = data
+    .map((d, i) => {
+      const x = (i / (data.length - 1)) * width;
+      const y = height - ((d - min) / range) * height;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join("");
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+      className="h-6 w-full opacity-80"
+      aria-hidden
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke={tone}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return `${value.toFixed(1)} ${units[unit]}`;
 }

@@ -18,6 +18,7 @@ from app.models.registry_credentials import (
     SharedRegistryCredentials,
 )
 from app.models.service import Builder, Service, ServiceType
+from app.models.service_metrics import ServiceMetrics
 from app.models.shared_env_variable import SharedEnvVariable
 from app.models.shared_volume import SharedVolume
 from app.models.url import URL
@@ -41,6 +42,7 @@ __all__ = [
     "SharedRegistryCredentials",
     "RegistryType",
     "ComposeStack",
+    "ServiceMetrics",
     "Config",
     "EnvVariable",
     "Service",

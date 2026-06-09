@@ -101,6 +101,10 @@ export interface paths {
     /** Deployment Single */
     get: operations["deployment_single_api_projects__project_slug___env_slug__service_details__slug__deployments__deployment_hash___get"];
   };
+  "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/{deployment_hash}/metrics/": {
+    /** Deployment Metrics */
+    get: operations["deployment_metrics_api_projects__project_slug___env_slug__service_details__slug__deployments__deployment_hash__metrics__get"];
+  };
   "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/{deployment_hash}/logs/": {
     /** Deployment Logs */
     get: operations["deployment_logs_api_projects__project_slug___env_slug__service_details__slug__deployments__deployment_hash__logs__get"];
@@ -525,6 +529,26 @@ export interface components {
       item_id?: string | null;
       /** New Value */
       new_value?: unknown;
+    };
+    /** ServiceMetricsSchema */
+    ServiceMetricsSchema: {
+      /** Cpu Percent */
+      cpu_percent: number;
+      /** Memory Bytes */
+      memory_bytes: number;
+      /** Net Rx Bytes */
+      net_rx_bytes: number;
+      /** Net Tx Bytes */
+      net_tx_bytes: number;
+      /** Disk Read Bytes */
+      disk_read_bytes: number;
+      /** Disk Writes Bytes */
+      disk_writes_bytes: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
     };
     /** ServiceSchema */
     ServiceSchema: {
@@ -1406,6 +1430,37 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["DeploymentSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Deployment Metrics */
+  deployment_metrics_api_projects__project_slug___env_slug__service_details__slug__deployments__deployment_hash__metrics__get: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+        deployment_hash: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ServiceMetricsSchema"][];
         };
       };
       /** @description Validation Error */

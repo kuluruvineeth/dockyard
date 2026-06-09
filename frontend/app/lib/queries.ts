@@ -195,6 +195,38 @@ export const serviceQueries = {
             .map((d) => d.status)
         )
     }),
+  deploymentMetrics: (
+    projectSlug: string,
+    envSlug: string,
+    slug: string,
+    deploymentHash: string
+  ) =>
+    queryOptions({
+      queryKey: [
+        "DEPLOYMENT_METRICS",
+        projectSlug,
+        envSlug,
+        slug,
+        deploymentHash
+      ] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await apiClient.GET(
+          "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/{deployment_hash}/metrics/",
+          {
+            params: {
+              path: {
+                project_slug: projectSlug,
+                env_slug: envSlug,
+                slug,
+                deployment_hash: deploymentHash
+              }
+            },
+            signal
+          }
+        );
+        return data ?? [];
+      }
+    }),
   deploymentLogs: (
     projectSlug: string,
     envSlug: string,

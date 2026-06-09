@@ -250,6 +250,28 @@ class DeploymentLogsResponse(BaseModel):
     logs: list[str]
 
 
+class ServiceMetricsSchema(BaseModel):
+    cpu_percent: float
+    memory_bytes: int
+    net_rx_bytes: int
+    net_tx_bytes: int
+    disk_read_bytes: int
+    disk_writes_bytes: int
+    created_at: datetime
+
+    @classmethod
+    def from_metrics(cls, metrics) -> "ServiceMetricsSchema":
+        return cls(
+            cpu_percent=metrics.cpu_percent,
+            memory_bytes=metrics.memory_bytes,
+            net_rx_bytes=metrics.net_rx_bytes,
+            net_tx_bytes=metrics.net_tx_bytes,
+            disk_read_bytes=metrics.disk_read_bytes,
+            disk_writes_bytes=metrics.disk_writes_bytes,
+            created_at=metrics.created_at,
+        )
+
+
 class ServiceCardSchema(BaseModel):
     id: str
     slug: str

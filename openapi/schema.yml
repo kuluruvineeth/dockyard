@@ -759,6 +759,56 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/{deployment_hash}/metrics/:
+    get:
+      summary: Deployment Metrics
+      operationId: deployment_metrics_api_projects__project_slug___env_slug__service_details__slug__deployments__deployment_hash__metrics__get
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      - name: deployment_hash
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Hash
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceMetricsSchema'
+                title: Response Deployment Metrics Api Projects  Project Slug   Env
+                  Slug  Service Details  Slug  Deployments  Deployment Hash  Metrics  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/{deployment_hash}/logs/:
     get:
       summary: Deployment Logs
@@ -2111,6 +2161,40 @@ components:
       - field
       - type
       title: ServiceChangeRequest
+    ServiceMetricsSchema:
+      properties:
+        cpu_percent:
+          type: number
+          title: Cpu Percent
+        memory_bytes:
+          type: integer
+          title: Memory Bytes
+        net_rx_bytes:
+          type: integer
+          title: Net Rx Bytes
+        net_tx_bytes:
+          type: integer
+          title: Net Tx Bytes
+        disk_read_bytes:
+          type: integer
+          title: Disk Read Bytes
+        disk_writes_bytes:
+          type: integer
+          title: Disk Writes Bytes
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - cpu_percent
+      - memory_bytes
+      - net_rx_bytes
+      - net_tx_bytes
+      - disk_read_bytes
+      - disk_writes_bytes
+      - created_at
+      title: ServiceMetricsSchema
     ServiceSchema:
       properties:
         id:

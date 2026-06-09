@@ -3,9 +3,35 @@ import docker.errors
 NONEXISTANT_IMAGE = "nonexistent/donotexist:latest"
 
 
+class FakeContainer:
+    def stats(self, stream=False):
+        return {
+            "cpu_stats": {
+                "cpu_usage": {"total_usage": 2_000_000, "percpu_usage": [1, 1]},
+                "system_cpu_usage": 10_000_000,
+                "online_cpus": 2,
+            },
+            "precpu_stats": {
+                "cpu_usage": {"total_usage": 1_000_000},
+                "system_cpu_usage": 5_000_000,
+            },
+            "memory_stats": {"usage": 52_428_800},
+            "networks": {"eth0": {"rx_bytes": 1000, "tx_bytes": 2000}},
+            "blkio_stats": {
+                "io_service_bytes_recursive": [
+                    {"op": "Read", "value": 4096},
+                    {"op": "Write", "value": 8192},
+                ]
+            },
+        }
+
+
 class FakeContainers:
     def run(self, image, command, remove=False, **kwargs):
         return b"4\n8589934592"
+
+    def list(self, filters=None, **kwargs):
+        return [FakeContainer()]
 
 
 class FakeImages:

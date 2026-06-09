@@ -20,6 +20,7 @@ from app.models import (
     Environment,
     Project,
     Service,
+    ServiceMetrics,
     ServiceType,
     SharedRegistryCredentials,
 )
@@ -31,11 +32,12 @@ from app.schemas.services import (
     DockerServiceCreateRequest,
     ServiceCardSchema,
     ServiceChangeRequest,
+    ServiceMetricsSchema,
     ServiceSchema,
     ServiceUpdateRequest,
     ToggleServiceRequest,
 )
-from app.services import proxy
+from app.services import metrics, proxy
 from app.services.deploy import _healthcheck_snapshot, build_service_snapshot
 from app.temporal.client import schedule_deploy_docker_service
 
@@ -258,6 +260,56 @@ async def deployment_single(
             f"A deployment with the hash `{deployment_hash}` does not exist."
         )
     return DeploymentSchema.from_deployment(deployment)
+
+
+@router.get(
+    "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/deployments/{deployment_hash}/metrics/",
+    response_model=list[ServiceMetricsSchema],
+)
+async def deployment_metrics(
+    project_slug: str,
+    env_slug: str,
+    slug: str,
+    deployment_hash: str,
+    user: CurrentUser,
+    db: DBSession,
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+
+    result = await db.execute(
+        select(Deployment).where(Deployment.service_id == service.id)
+    )
+    deployment = next(
+        (
+            d
+            for d in result.scalars()
+            if d.unprefixed_hash == deployment_hash or d.id == deployment_hash
+        ),
+        None,
+    )
+    if deployment is None:
+        raise NotFound(
+            f"A deployment with the hash `{deployment_hash}` does not exist."
+        )
+
+    try:
+        sample = metrics.collect_deployment_metrics(service, deployment)
+        if sample is not None:
+            db.add(sample)
+            await db.commit()
+    except Exception as error:  # noqa: BLE001
+        _logger.warning("could not collect deployment metrics: %s", error)
+
+    result = await db.execute(
+        select(ServiceMetrics)
+        .where(ServiceMetrics.deployment_id == deployment.id)
+        .order_by(ServiceMetrics.created_at.desc())
+        .limit(60)
+    )
+    rows = list(result.scalars().all())
+    return [ServiceMetricsSchema.from_metrics(m) for m in reversed(rows)]
 
 
 @router.get(

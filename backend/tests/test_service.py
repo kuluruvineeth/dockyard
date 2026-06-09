@@ -804,3 +804,41 @@ class TestResourceLimits:
         assert swarm.resources is not None
         assert swarm.resources["Limits"]["NanoCPUs"] == 10**9
         assert swarm.resources["Limits"]["MemoryBytes"] == 512 * 1024**2
+
+
+class TestDeploymentMetrics:
+    async def test_metrics_sample(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        deploy = await auth_client.put(_deploy_url(p, "app"))
+        deployment_hash = deploy.json()["id"].rsplit("_", 1)[-1]
+        response = await auth_client.get(
+            f"/api/projects/{p}/production/service-details/app/deployments/{deployment_hash}/metrics/"
+        )
+        assert response.status_code == 200
+        assert len(response.json()) >= 1
+        latest = response.json()[-1]
+        assert latest["cpu_percent"] == 40.0
+        assert latest["memory_bytes"] == 52_428_800
+        assert latest["net_rx_bytes"] == 1000
+        assert latest["net_tx_bytes"] == 2000
+        assert latest["disk_read_bytes"] == 4096
+        assert latest["disk_writes_bytes"] == 8192
+
+    async def test_metrics_accumulate(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        deploy = await auth_client.put(_deploy_url(p, "app"))
+        deployment_hash = deploy.json()["id"].rsplit("_", 1)[-1]
+        url = f"/api/projects/{p}/production/service-details/app/deployments/{deployment_hash}/metrics/"
+        await auth_client.get(url)
+        second = await auth_client.get(url)
+        assert len(second.json()) == 2
+
+    async def test_metrics_nonexistent(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        response = await auth_client.get(
+            f"/api/projects/{p}/production/service-details/app/deployments/nope/metrics/"
+        )
+        assert response.status_code == 404
