@@ -1,10 +1,11 @@
+import os
 import subprocess
 
 
 def clone_git_repository(
     repository_url: str, branch_name: str, destination: str
 ) -> str:
-    subprocess.run(
+    result = subprocess.run(
         [
             "git",
             "clone",
@@ -15,18 +16,20 @@ def clone_git_repository(
             repository_url,
             destination,
         ],
-        check=True,
         capture_output=True,
+        text=True,
         timeout=300,
     )
-    result = subprocess.run(
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip()[-1000:] or "git clone failed")
+
+    head = subprocess.run(
         ["git", "-C", destination, "rev-parse", "HEAD"],
-        check=True,
         capture_output=True,
         text=True,
         timeout=30,
     )
-    return result.stdout.strip()
+    return head.stdout.strip()
 
 
 def build_docker_image(
@@ -35,14 +38,17 @@ def build_docker_image(
     image_tag: str,
     build_args: dict[str, str] | None = None,
 ) -> str:
-    command = ["docker", "build", "-f", dockerfile_path, "-t", image_tag]
+    dockerfile = os.path.normpath(os.path.join(context_dir, dockerfile_path))
+    command = ["docker", "build", "-f", dockerfile, "-t", image_tag]
     for key, value in (build_args or {}).items():
         command += ["--build-arg", f"{key}={value}"]
     command.append(context_dir)
-    subprocess.run(
+    result = subprocess.run(
         command,
-        check=True,
         capture_output=True,
+        text=True,
         timeout=1800,
     )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip()[-1000:] or "docker build failed")
     return image_tag
