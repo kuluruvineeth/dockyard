@@ -43,6 +43,18 @@ export async function clientAction({
   const formData = await request.formData();
   const projectKey = projectQueries.single(params.projectSlug).queryKey;
 
+  if (formData.get("intent")?.toString() === "delete-project") {
+    const { error } = await apiClient.DELETE("/api/projects/{slug}/", {
+      headers: { ...(await getCsrfTokenHeader()) },
+      params: { path: { slug: params.projectSlug } }
+    });
+    if (error) {
+      return { error };
+    }
+    await queryClient.invalidateQueries({ queryKey: ["PROJECT_LIST"] });
+    throw redirect("/");
+  }
+
   if (formData.get("intent")?.toString() === "delete-env") {
     const { error } = await apiClient.DELETE(
       "/api/projects/{project_slug}/environments/{env_slug}/",
@@ -339,6 +351,40 @@ export default function EnvironmentServiceList({
             </div>
           </Card>
         )}
+      </div>
+
+      <div className="mt-4 flex flex-col gap-4 border border-destructive/30 bg-card p-5">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-sm font-semibold tracking-tight text-destructive">
+            Danger zone
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Deleting a project removes all of its environments and services.
+            This cannot be undone.
+          </p>
+        </div>
+        <Form
+          method="POST"
+          className="flex justify-start"
+          onSubmit={(event) => {
+            if (
+              !window.confirm(
+                `Delete project"${projectSlug}" and all its services? This cannot be undone.`
+              )
+            )
+              event.preventDefault();
+          }}
+        >
+          <input type="hidden" name="intent" value="delete-project" />
+          <Button
+            type="submit"
+            variant="destructive"
+            size="sm"
+            className="gap-1.5"
+          >
+            <Trash2Icon size={14} strokeWidth={1.75} /> Delete project
+          </Button>
+        </Form>
       </div>
     </section>
   );
