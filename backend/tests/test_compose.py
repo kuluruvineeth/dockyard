@@ -143,3 +143,31 @@ class TestDeployComposeStack:
         assert response.status_code == 200
         assert len(response.json()) == 1
         assert response.json()[0]["slug"] == "myapp"
+
+
+def _archive_url(project_slug, slug, env_slug="production"):
+    return f"/api/projects/{project_slug}/{env_slug}/compose-stack/{slug}/"
+
+
+class TestArchiveComposeStack:
+    async def test_archive_stack(self, auth_client, fake_docker):
+        p = await _make_project(auth_client)
+        await auth_client.post(
+            _create_url(p), json={"slug": "myapp", "contents": COMPOSE}
+        )
+        await auth_client.put(_deploy_url(p, "myapp"))
+        assert len(fake_docker.services.list()) == 2
+
+        response = await auth_client.delete(_archive_url(p, "myapp"))
+        assert response.status_code == 204
+        assert len(fake_docker.services.list()) == 0
+
+        stacks = await auth_client.get(f"/api/projects/{p}/production/compose-stacks/")
+        assert len(stacks.json()) == 0
+        listing = await auth_client.get(f"/api/projects/{p}/production/service-list/")
+        assert len(listing.json()) == 0
+
+    async def test_archive_nonexistent_stack(self, auth_client):
+        p = await _make_project(auth_client)
+        response = await auth_client.delete(_archive_url(p, "nope"))
+        assert response.status_code == 404

@@ -165,6 +165,10 @@ export interface paths {
     /** Deploy Compose Stack */
     put: operations["deploy_compose_stack_api_projects__project_slug___env_slug__deploy_compose_stack__slug___put"];
   };
+  "/api/projects/{project_slug}/{env_slug}/compose-stack/{slug}/": {
+    /** Archive Compose Stack */
+    delete: operations["archive_compose_stack_api_projects__project_slug___env_slug__compose_stack__slug___delete"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -1915,6 +1919,34 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["ComposeStackSchema"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Archive Compose Stack */
+  archive_compose_stack_api_projects__project_slug___env_slug__compose_stack__slug___delete: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
       };
       /** @description Validation Error */
       422: {

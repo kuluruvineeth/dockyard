@@ -46,6 +46,38 @@ export async function clientAction({
   const formData = await request.formData();
   const projectKey = projectQueries.single(params.projectSlug).queryKey;
 
+  if (formData.get("intent")?.toString() === "delete-stack") {
+    const { error } = await apiClient.DELETE(
+      "/api/projects/{project_slug}/{env_slug}/compose-stack/{slug}/",
+      {
+        headers: { ...(await getCsrfTokenHeader()) },
+        params: {
+          path: {
+            project_slug: params.projectSlug,
+            env_slug: params.envSlug,
+            slug: formData.get("stack_slug")?.toString() ?? ""
+          }
+        }
+      }
+    );
+    if (error) {
+      return { error };
+    }
+    await queryClient.invalidateQueries({
+      queryKey: environmentQueries.composeStacks(
+        params.projectSlug,
+        params.envSlug
+      ).queryKey
+    });
+    await queryClient.invalidateQueries({
+      queryKey: environmentQueries.serviceList(
+        params.projectSlug,
+        params.envSlug
+      ).queryKey
+    });
+    return { ok: true };
+  }
+
   if (formData.get("intent")?.toString() === "deploy-stack") {
     const { error } = await apiClient.PUT(
       "/api/projects/{project_slug}/{env_slug}/deploy-compose-stack/{slug}/",
@@ -494,13 +526,26 @@ export default function EnvironmentServiceList({
                     {stack.services.length} services
                   </span>
                 </div>
-                <Form method="POST">
-                  <input type="hidden" name="intent" value="deploy-stack" />
-                  <input type="hidden" name="stack_slug" value={stack.slug} />
-                  <Button type="submit" variant="outline" size="sm">
-                    Deploy
-                  </Button>
-                </Form>
+                <div className="flex items-center gap-1.5">
+                  <Form method="POST">
+                    <input type="hidden" name="intent" value="deploy-stack" />
+                    <input type="hidden" name="stack_slug" value={stack.slug} />
+                    <Button type="submit" variant="outline" size="sm">
+                      Deploy
+                    </Button>
+                  </Form>
+                  <Form method="POST">
+                    <input type="hidden" name="intent" value="delete-stack" />
+                    <input type="hidden" name="stack_slug" value={stack.slug} />
+                    <button
+                      type="submit"
+                      className="press-effect p-1.5 text-muted-foreground transition-colors hover:text-destructive"
+                      title="Delete stack"
+                    >
+                      <Trash2Icon size={15} strokeWidth={1.75} />
+                    </button>
+                  </Form>
+                </div>
               </div>
             ))}
           </Card>

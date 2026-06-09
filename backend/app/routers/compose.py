@@ -1,9 +1,11 @@
 import secrets
 
-from fastapi import APIRouter
+import docker.errors
+from fastapi import APIRouter, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app import docker_helpers
 from app.dependencies import CurrentUser, DBSession
 from app.errors import NotFound, ResourceConflict, ValidationException
 from app.models import (
@@ -21,7 +23,7 @@ from app.routers.docker_services import (
     get_project_or_404,
 )
 from app.schemas.compose import ComposeStackSchema, CreateComposeStackRequest
-from app.services import compose_processor
+from app.services import compose_processor, proxy
 from app.services.deploy import build_service_snapshot
 from app.temporal.client import schedule_deploy_docker_service
 
@@ -193,3 +195,36 @@ async def deploy_compose_stack(
         await schedule_deploy_docker_service(db, service, environment, deployment)
 
     return ComposeStackSchema.from_stack(stack)
+
+
+@router.delete(
+    "/api/projects/{project_slug}/{env_slug}/compose-stack/{slug}/",
+    status_code=204,
+)
+async def archive_compose_stack(
+    project_slug: str, env_slug: str, slug: str, user: CurrentUser, db: DBSession
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    stack = await _get_stack_or_404(db, project, environment, slug)
+
+    client = docker_helpers.get_docker_client()
+    for service in stack.services:
+        for deployment in service.deployments:
+            swarm_name = docker_helpers.get_swarm_service_name_for_deployment(
+                deployment.unprefixed_hash, project.id, service.id
+            )
+            try:
+                client.services.get(swarm_name).remove()
+            except docker.errors.NotFound:
+                pass
+            except Exception:  # noqa: BLE001
+                pass
+        try:
+            proxy.unexpose_service_from_http(service)
+        except Exception:  # noqa: BLE001
+            pass
+
+    await db.delete(stack)
+    await db.commit()
+    return Response(status_code=204)
