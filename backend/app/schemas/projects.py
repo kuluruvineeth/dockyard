@@ -60,6 +60,12 @@ class ProjectCreateRequest(BaseModel):
     description: str | None = None
 
 
+class CreateEnvironmentRequest(BaseModel):
+    name: str = Field(
+        min_length=1, max_length=255, pattern=r"^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$"
+    )
+
+
 class ProjectUpdateRequest(BaseModel):
     slug: str | None = Field(default=None, max_length=255, pattern=r"^[-a-zA-Z0-9_]+$")
     description: str | None = None

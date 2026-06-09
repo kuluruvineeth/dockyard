@@ -1,5 +1,7 @@
+import logging
+
 from faker import Faker
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from sqlalchemy import and_, case, func, select
 from sqlalchemy.exc import IntegrityError
 
@@ -8,11 +10,16 @@ from app.dependencies import CurrentUser, DBSession
 from app.errors import NotFound, ResourceConflict
 from app.models import Deployment, DeploymentStatus, Environment, Project, Service
 from app.schemas.projects import (
+    CreateEnvironmentRequest,
     ProjectCreateRequest,
     ProjectSchema,
     ProjectUpdateRequest,
+    SimpleEnvironmentSchema,
 )
+from app.services import networks
 from app.temporal.client import schedule_create_project_resources
+
+_logger = logging.getLogger("dockyard.projects")
 
 router = APIRouter()
 fake = Faker()
@@ -138,3 +145,66 @@ async def update_project(
 
     result = await db.execute(select(Project).where(Project.id == project.id))
     return ProjectSchema.from_project(result.scalar_one())
+
+
+@router.post(
+    "/api/projects/{project_slug}/environments/",
+    status_code=201,
+    response_model=SimpleEnvironmentSchema,
+)
+async def create_environment(
+    project_slug: str,
+    body: CreateEnvironmentRequest,
+    user: CurrentUser,
+    db: DBSession,
+):
+    project = await _get_project_or_404(db, user, project_slug)
+    name = body.name.lower()
+
+    environment = Environment(name=name, project_id=project.id)
+    db.add(environment)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise ResourceConflict(
+            f"An environment with the name `{name}` already exists in this project."
+        )
+
+    await db.refresh(environment, ["created_at"])
+    try:
+        networks.create_environment_network(environment.id, project.id)
+    except Exception as error:  # noqa: BLE001
+        _logger.warning("could not create environment network: %s", error)
+
+    return SimpleEnvironmentSchema.from_environment(environment)
+
+
+@router.delete("/api/projects/{project_slug}/environments/{env_slug}/", status_code=204)
+async def delete_environment(
+    project_slug: str, env_slug: str, user: CurrentUser, db: DBSession
+):
+    project = await _get_project_or_404(db, user, project_slug)
+
+    result = await db.execute(
+        select(Environment).where(
+            Environment.project_id == project.id,
+            Environment.name == env_slug.lower(),
+        )
+    )
+    environment = result.scalar_one_or_none()
+    if environment is None:
+        raise NotFound(
+            f"An environment with the name `{env_slug}` does not exist in this project."
+        )
+    if environment.name == PRODUCTION_ENV_NAME:
+        raise ResourceConflict("You cannot delete the production environment.")
+
+    try:
+        networks.delete_environment_network(environment.id, project.id)
+    except Exception as error:  # noqa: BLE001
+        _logger.warning("could not delete environment network: %s", error)
+
+    await db.delete(environment)
+    await db.commit()
+    return Response(status_code=204)

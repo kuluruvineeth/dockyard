@@ -61,6 +61,14 @@ export interface paths {
     /** Update Project */
     put: operations["update_project_api_projects__slug___put"];
   };
+  "/api/projects/{project_slug}/environments/": {
+    /** Create Environment */
+    post: operations["create_environment_api_projects__project_slug__environments__post"];
+  };
+  "/api/projects/{project_slug}/environments/{env_slug}/": {
+    /** Delete Environment */
+    delete: operations["delete_environment_api_projects__project_slug__environments__env_slug___delete"];
+  };
   "/api/docker/image-search/": {
     /** Image Search */
     get: operations["image_search_api_docker_image_search__get"];
@@ -169,6 +177,11 @@ export interface components {
       language: string;
       /** Version */
       version: number;
+    };
+    /** CreateEnvironmentRequest */
+    CreateEnvironmentRequest: {
+      /** Name */
+      name: string;
     };
     /** DeploymentListResponse */
     DeploymentListResponse: {
@@ -885,6 +898,66 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["ProjectSchema"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Create Environment */
+  create_environment_api_projects__project_slug__environments__post: {
+    parameters: {
+      path: {
+        project_slug: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateEnvironmentRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["SimpleEnvironmentSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Delete Environment */
+  delete_environment_api_projects__project_slug__environments__env_slug___delete: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
       };
       /** @description Validation Error */
       422: {
