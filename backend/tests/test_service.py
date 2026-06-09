@@ -595,3 +595,58 @@ class TestRedeployDockerService:
         await auth_client.put(_deploy_url(p, "app"))
         response = await auth_client.put(_redeploy_url(p, "app", "nope"))
         assert response.status_code == 404
+
+
+def _archive_url(project_slug, slug, env_slug="production"):
+    return f"/api/projects/{project_slug}/{env_slug}/archive-service/docker/{slug}/"
+
+
+class TestArchiveDockerService:
+    async def test_archive_simple_service(self, auth_client, fake_docker):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        await auth_client.put(_deploy_url(p, "app"))
+        assert len(fake_docker.services.list()) == 1
+
+        response = await auth_client.delete(_archive_url(p, "app"))
+        assert response.status_code == 204
+
+        get = await auth_client.get(_details_url(p, "app"))
+        assert get.status_code == 404
+        assert len(fake_docker.services.list()) == 0
+
+    async def test_archive_non_deployed_service(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        response = await auth_client.delete(_archive_url(p, "app"))
+        assert response.status_code == 204
+        get = await auth_client.get(_details_url(p, "app"))
+        assert get.status_code == 404
+
+    async def test_archive_non_existing_service(self, auth_client):
+        p = await _make_project(auth_client)
+        response = await auth_client.delete(_archive_url(p, "nope"))
+        assert response.status_code == 404
+
+    async def test_archive_removes_caddy_route(self, auth_client, fake_caddy):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="caddy:2.8-alpine")
+        await auth_client.put(
+            _changes_url(p, "app"),
+            json={
+                "field": "urls",
+                "type": "ADD",
+                "new_value": {
+                    "domain": "app.dky.local",
+                    "base_path": "/",
+                    "associated_port": 80,
+                },
+            },
+        )
+        await auth_client.put(_deploy_url(p, "app"))
+        routes = fake_caddy.domains["app.dky.local"]["handle"][0]["routes"]
+        assert any(r["@id"] == "app.dky.local-*" for r in routes)
+
+        await auth_client.delete(_archive_url(p, "app"))
+        routes = fake_caddy.domains["app.dky.local"]["handle"][0]["routes"]
+        assert not any(r["@id"] == "app.dky.local-*" for r in routes)

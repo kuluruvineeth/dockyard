@@ -730,6 +730,42 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/projects/{project_slug}/{env_slug}/archive-service/docker/{slug}/:
+    delete:
+      summary: Archive Docker Service
+      operationId: archive_docker_service_api_projects__project_slug___env_slug__archive_service_docker__slug___delete
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/projects/{project_slug}/{env_slug}/request-service-changes/{slug}/:
     put:
       summary: Request Service Changes

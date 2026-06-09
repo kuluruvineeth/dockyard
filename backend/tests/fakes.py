@@ -148,6 +148,17 @@ class FakeCaddyClient:
             self.domains[domain]["handle"][0]["routes"] = json
         return FakeResponse(200, json)
 
+    def delete(self, path):
+        route_id = path[len("/id/") :]
+        if route_id in self.domains:
+            del self.domains[route_id]
+        for domain_route in self.domains.values():
+            routes = domain_route["handle"][0]["routes"]
+            domain_route["handle"][0]["routes"] = [
+                r for r in routes if r["@id"] != route_id
+            ]
+        return FakeResponse(200, None)
+
 
 class FakeDockerClient:
     NONEXISTANT_IMAGE = NONEXISTANT_IMAGE

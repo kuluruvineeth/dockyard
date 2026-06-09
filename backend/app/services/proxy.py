@@ -123,3 +123,9 @@ def expose_service_to_http(service) -> None:
         routes = sort_proxy_routes(routes)
 
         client.patch(f"/id/{url.domain}/handle/0/routes", routes)
+
+
+def unexpose_service_from_http(service) -> None:
+    client = caddy.get_caddy_client()
+    for url in service.urls:
+        client.delete(f"/id/{get_caddy_id_for_url(url)}")

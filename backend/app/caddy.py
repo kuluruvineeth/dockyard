@@ -19,6 +19,9 @@ class CaddyClient:
     def patch(self, path: str, json):
         return httpx.patch(f"{self.admin_host}{path}", json=json, timeout=5)
 
+    def delete(self, path: str):
+        return httpx.delete(f"{self.admin_host}{path}", timeout=5)
+
 
 _client: CaddyClient | None = None
 

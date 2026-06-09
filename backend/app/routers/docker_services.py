@@ -1,10 +1,12 @@
 import secrets
 
+import docker.errors
 from faker import Faker
 from fastapi import APIRouter, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app import docker_helpers
 from app.dependencies import CurrentUser, DBSession
 from app.docker_helpers import check_if_docker_image_exists
 from app.errors import NotFound, ResourceConflict, ValidationException
@@ -28,6 +30,7 @@ from app.schemas.services import (
     ServiceSchema,
     ServiceUpdateRequest,
 )
+from app.services import proxy
 from app.temporal.client import schedule_deploy_docker_service
 
 RESERVED_PORTS = {80, 443}
@@ -349,6 +352,39 @@ async def redeploy_docker_service(
 
     await db.refresh(deployment, ["queued_at"])
     return DeploymentSchema.from_deployment(deployment)
+
+
+@router.delete(
+    "/api/projects/{project_slug}/{env_slug}/archive-service/docker/{slug}/",
+    status_code=204,
+)
+async def archive_docker_service(
+    project_slug: str, env_slug: str, slug: str, user: CurrentUser, db: DBSession
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+
+    client = docker_helpers.get_docker_client()
+    for deployment in service.deployments:
+        swarm_name = docker_helpers.get_swarm_service_name_for_deployment(
+            deployment.unprefixed_hash, service.project_id, service.id
+        )
+        try:
+            client.services.get(swarm_name).remove()
+        except docker.errors.NotFound:
+            pass
+        except Exception:  # noqa: BLE001
+            pass
+
+    try:
+        proxy.unexpose_service_from_http(service)
+    except Exception:  # noqa: BLE001
+        pass
+
+    await db.delete(service)
+    await db.commit()
+    return Response(status_code=204)
 
 
 @router.patch(
