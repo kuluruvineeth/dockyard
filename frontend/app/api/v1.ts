@@ -157,6 +157,14 @@ export interface paths {
     /** Create Compose Stack */
     post: operations["create_compose_stack_api_projects__project_slug___env_slug__create_compose_stack__post"];
   };
+  "/api/projects/{project_slug}/{env_slug}/compose-stacks/": {
+    /** List Compose Stacks */
+    get: operations["list_compose_stacks_api_projects__project_slug___env_slug__compose_stacks__get"];
+  };
+  "/api/projects/{project_slug}/{env_slug}/deploy-compose-stack/{slug}/": {
+    /** Deploy Compose Stack */
+    put: operations["deploy_compose_stack_api_projects__project_slug___env_slug__deploy_compose_stack__slug___put"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -1845,6 +1853,65 @@ export interface operations {
     responses: {
       /** @description Successful Response */
       201: {
+        content: {
+          "application/json": components["schemas"]["ComposeStackSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** List Compose Stacks */
+  list_compose_stacks_api_projects__project_slug___env_slug__compose_stacks__get: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ComposeStackSchema"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Deploy Compose Stack */
+  deploy_compose_stack_api_projects__project_slug___env_slug__deploy_compose_stack__slug___put: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
         content: {
           "application/json": components["schemas"]["ComposeStackSchema"];
         };

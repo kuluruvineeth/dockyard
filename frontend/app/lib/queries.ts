@@ -74,6 +74,22 @@ export const environmentQueries = {
         return data ?? [];
       }
     }),
+  composeStacks: (projectSlug: string, envSlug: string) =>
+    queryOptions({
+      queryKey: ["COMPOSE_STACKS", projectSlug, envSlug] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await apiClient.GET(
+          "/api/projects/{project_slug}/{env_slug}/compose-stacks/",
+          {
+            params: {
+              path: { project_slug: projectSlug, env_slug: envSlug }
+            },
+            signal
+          }
+        );
+        return data ?? [];
+      }
+    }),
   serviceList: (projectSlug: string, envSlug: string, query?: string) =>
     queryOptions({
       queryKey: ["SERVICE_LIST", projectSlug, envSlug, query ?? ""] as const,

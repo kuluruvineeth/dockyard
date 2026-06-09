@@ -1,14 +1,16 @@
 import secrets
 
 from fastapi import APIRouter
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.dependencies import CurrentUser, DBSession
-from app.errors import ResourceConflict, ValidationException
+from app.errors import NotFound, ResourceConflict, ValidationException
 from app.models import (
     ChangeField,
     ChangeType,
     ComposeStack,
+    Deployment,
     DeploymentChange,
     Service,
     ServiceType,
@@ -20,6 +22,8 @@ from app.routers.docker_services import (
 )
 from app.schemas.compose import ComposeStackSchema, CreateComposeStackRequest
 from app.services import compose_processor
+from app.services.deploy import build_service_snapshot
+from app.temporal.client import schedule_deploy_docker_service
 
 router = APIRouter()
 
@@ -120,4 +124,72 @@ async def create_compose_stack(
         )
 
     await db.refresh(stack, ["created_at"])
+    return ComposeStackSchema.from_stack(stack)
+
+
+async def _get_stack_or_404(db, project, environment, slug):
+    result = await db.execute(
+        select(ComposeStack).where(
+            ComposeStack.project_id == project.id,
+            ComposeStack.environment_id == environment.id,
+            ComposeStack.slug == slug.lower(),
+        )
+    )
+    stack = result.scalar_one_or_none()
+    if stack is None:
+        raise NotFound(f"A compose stack with the slug `{slug}` does not exist.")
+    return stack
+
+
+@router.get(
+    "/api/projects/{project_slug}/{env_slug}/compose-stacks/",
+    response_model=list[ComposeStackSchema],
+)
+async def list_compose_stacks(
+    project_slug: str, env_slug: str, user: CurrentUser, db: DBSession
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    result = await db.execute(
+        select(ComposeStack)
+        .where(
+            ComposeStack.project_id == project.id,
+            ComposeStack.environment_id == environment.id,
+        )
+        .order_by(ComposeStack.created_at.desc())
+    )
+    return [ComposeStackSchema.from_stack(s) for s in result.scalars()]
+
+
+@router.put(
+    "/api/projects/{project_slug}/{env_slug}/deploy-compose-stack/{slug}/",
+    response_model=ComposeStackSchema,
+)
+async def deploy_compose_stack(
+    project_slug: str, env_slug: str, slug: str, user: CurrentUser, db: DBSession
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    stack = await _get_stack_or_404(db, project, environment, slug)
+
+    pairs = []
+    for service in stack.services:
+        deployment = Deployment(
+            id=generate_id("dpl_dkr_"),
+            service_id=service.id,
+            slot=Deployment.get_next_deployment_slot(
+                service.latest_production_deployment
+            ),
+            commit_message="deploy compose stack",
+        )
+        service.deployments.append(deployment)
+        service.apply_pending_changes(deployment)
+        deployment.service_snapshot = build_service_snapshot(service)
+        pairs.append((service, deployment))
+
+    await db.commit()
+
+    for service, deployment in pairs:
+        await schedule_deploy_docker_service(db, service, environment, deployment)
+
     return ComposeStackSchema.from_stack(stack)

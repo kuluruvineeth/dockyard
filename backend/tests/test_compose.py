@@ -100,3 +100,46 @@ class TestCreateComposeStack:
             _create_url(p), json={"slug": "myapp", "contents": COMPOSE}
         )
         assert response.status_code == 409
+
+
+def _deploy_url(project_slug, slug, env_slug="production"):
+    return f"/api/projects/{project_slug}/{env_slug}/deploy-compose-stack/{slug}/"
+
+
+class TestDeployComposeStack:
+    async def test_deploy_stack_deploys_all_services(self, auth_client, fake_docker):
+        p = await _make_project(auth_client)
+        await auth_client.post(
+            _create_url(p), json={"slug": "myapp", "contents": COMPOSE}
+        )
+        response = await auth_client.put(_deploy_url(p, "myapp"))
+        assert response.status_code == 200
+        assert len(fake_docker.services.list()) == 2
+
+    async def test_deploy_stack_marks_services_healthy(self, auth_client):
+        p = await _make_project(auth_client)
+        await auth_client.post(
+            _create_url(p), json={"slug": "myapp", "contents": COMPOSE}
+        )
+        await auth_client.put(_deploy_url(p, "myapp"))
+        listing = await auth_client.get(f"/api/projects/{p}/production/service-list/")
+        statuses = {s["slug"]: s["status"] for s in listing.json()}
+        assert statuses["myapp-web"] == "HEALTHY"
+        assert statuses["myapp-cache"] == "HEALTHY"
+
+    async def test_deploy_nonexistent_stack(self, auth_client):
+        p = await _make_project(auth_client)
+        response = await auth_client.put(_deploy_url(p, "nope"))
+        assert response.status_code == 404
+
+    async def test_list_stacks(self, auth_client):
+        p = await _make_project(auth_client)
+        await auth_client.post(
+            _create_url(p), json={"slug": "myapp", "contents": COMPOSE}
+        )
+        response = await auth_client.get(
+            f"/api/projects/{p}/production/compose-stacks/"
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+        assert response.json()[0]["slug"] == "myapp"

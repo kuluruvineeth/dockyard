@@ -46,6 +46,32 @@ export async function clientAction({
   const formData = await request.formData();
   const projectKey = projectQueries.single(params.projectSlug).queryKey;
 
+  if (formData.get("intent")?.toString() === "deploy-stack") {
+    const { error } = await apiClient.PUT(
+      "/api/projects/{project_slug}/{env_slug}/deploy-compose-stack/{slug}/",
+      {
+        headers: { ...(await getCsrfTokenHeader()) },
+        params: {
+          path: {
+            project_slug: params.projectSlug,
+            env_slug: params.envSlug,
+            slug: formData.get("stack_slug")?.toString() ?? ""
+          }
+        }
+      }
+    );
+    if (error) {
+      return { error };
+    }
+    await queryClient.invalidateQueries({
+      queryKey: environmentQueries.serviceList(
+        params.projectSlug,
+        params.envSlug
+      ).queryKey
+    });
+    return { ok: true };
+  }
+
   if (formData.get("intent")?.toString() === "delete-project") {
     const { error } = await apiClient.DELETE("/api/projects/{slug}/", {
       headers: { ...(await getCsrfTokenHeader()) },
@@ -159,7 +185,7 @@ function EnvironmentServiceListSkeleton() {
       </div>
 
       <div className="-mt-2 flex flex-wrap divide-x divide-border border-y border-border">
-        {Array.from({ length: 3 }).map((_, i) => (
+        {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="flex flex-col gap-1.5 px-6 py-3 first:pl-0">
             <div className="h-7 w-8 bg-muted" />
             <div className="h-3 w-16 bg-muted" />
@@ -214,6 +240,9 @@ export default function EnvironmentServiceList({
   const { data: variables } = useQuery(
     environmentQueries.variables(projectSlug, envSlug)
   );
+  const { data: stacks } = useQuery(
+    environmentQueries.composeStacks(projectSlug, envSlug)
+  );
 
   if (!services || !project) return <EnvironmentServiceListSkeleton />;
 
@@ -227,6 +256,7 @@ export default function EnvironmentServiceList({
   const stats = [
     { label: "Services", value: serviceCount, healthy: false },
     { label: "Healthy", value: healthyCount, healthy: true },
+    { label: "Stacks", value: stacks?.length ?? 0, healthy: false },
     { label: "Shared vars", value: variables?.length ?? 0, healthy: false }
   ];
 
@@ -238,7 +268,7 @@ export default function EnvironmentServiceList({
             {projectSlug}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Services running in{""}
+            Services and compose stacks running in{""}
             <span className="font-medium text-foreground">{envSlug}</span>.
           </p>
         </div>
@@ -440,6 +470,42 @@ export default function EnvironmentServiceList({
           </Card>
         )}
       </div>
+
+      {stacks && stacks.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            Compose stacks
+            <span className="tabular-nums"> · {stacks.length}</span>
+          </h2>
+          <Card className="divide-y divide-border overflow-hidden p-0">
+            {stacks.map((stack) => (
+              <div
+                key={stack.id}
+                className="grid grid-cols-[auto_1fr_auto] items-center gap-4 px-4 py-3.5 transition-colors duration-200 hover:bg-muted/40"
+              >
+                <span className="flex size-9 flex-none items-center justify-center bg-muted text-foreground">
+                  <LayersIcon size={16} strokeWidth={1.75} />
+                </span>
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="truncate font-medium tracking-tight">
+                    {stack.slug}
+                  </span>
+                  <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
+                    {stack.services.length} services
+                  </span>
+                </div>
+                <Form method="POST">
+                  <input type="hidden" name="intent" value="deploy-stack" />
+                  <input type="hidden" name="stack_slug" value={stack.slug} />
+                  <Button type="submit" variant="outline" size="sm">
+                    Deploy
+                  </Button>
+                </Form>
+              </div>
+            ))}
+          </Card>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
