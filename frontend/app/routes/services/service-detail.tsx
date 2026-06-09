@@ -5,14 +5,15 @@ import {
   InfoIcon,
   LoaderIcon,
   PackageIcon,
-  RocketIcon
+  RocketIcon,
+  Trash2Icon
 } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
-import { Form, Link, useNavigation } from "react-router";
+import { Form, Link, redirect, useNavigation } from "react-router";
 import { apiClient } from "~/api/client";
 import { DockerDeploymentCard } from "~/components/deployment-cards";
 import { StatusBadge, type StatusBadgeColor } from "~/components/status-badge";
-import { SubmitButton } from "~/components/ui/button";
+import { Button, SubmitButton } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import {
   FieldSet,
@@ -26,7 +27,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "~/components/ui/tooltip";
-import { serviceQueries } from "~/lib/queries";
+import { environmentQueries, serviceQueries } from "~/lib/queries";
 import { getFormErrorsFromResponseData } from "~/lib/utils";
 import { queryClient } from "~/root";
 import { getCsrfTokenHeader, metaTitle } from "~/utils";
@@ -64,6 +65,23 @@ export async function clientAction({
     params.envSlug,
     params.slug
   ).queryKey;
+
+  if (formData.get("intent")?.toString() === "archive") {
+    const { error } = await apiClient.DELETE(
+      "/api/projects/{project_slug}/{env_slug}/archive-service/docker/{slug}/",
+      { headers: { ...(await getCsrfTokenHeader()) }, params: { path } }
+    );
+    if (error) {
+      return { error };
+    }
+    await queryClient.invalidateQueries({
+      queryKey: environmentQueries.serviceList(
+        params.projectSlug,
+        params.envSlug
+      ).queryKey
+    });
+    throw redirect(`/project/${params.projectSlug}/${params.envSlug}`);
+  }
 
   if (formData.get("intent")?.toString() === "redeploy") {
     const { error, data } = await apiClient.PUT(
@@ -810,6 +828,39 @@ export default function ServiceDetail({
               </div>
             </SectionCard>
           )}
+
+          <Card className="border-destructive/30 p-5">
+            <div className="flex flex-col gap-3">
+              <div className="text-sm">
+                <p className="font-medium tracking-tight">Danger zone</p>
+                <p className="text-grey">
+                  Archiving removes the running containers and deletes the
+                  service. This cannot be undone.
+                </p>
+              </div>
+              <Form
+                method="POST"
+                onSubmit={(event) => {
+                  if (
+                    !window.confirm(
+                      "Archive this service? This cannot be undone."
+                    )
+                  )
+                    event.preventDefault();
+                }}
+              >
+                <input type="hidden" name="intent" value="archive" />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2Icon size={14} strokeWidth={1.75} /> Archive service
+                </Button>
+              </Form>
+            </div>
+          </Card>
         </aside>
       </div>
 
