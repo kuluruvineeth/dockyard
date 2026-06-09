@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   BoxIcon,
+  GitBranchIcon,
   MoreHorizontalIcon,
   PlusIcon,
   Trash2Icon
@@ -99,6 +100,7 @@ function EnvironmentServiceListSkeleton() {
           <div className="h-4 w-72 bg-muted" />
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <div className="h-9 w-36 bg-muted" />
           <div className="h-9 w-44 bg-muted" />
         </div>
       </div>
@@ -173,6 +175,11 @@ export default function EnvironmentServiceList({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Link to={`/project/${projectSlug}/${envSlug}/create-service/git`}>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <GitBranchIcon size={15} strokeWidth={1.75} /> New git service
+            </Button>
+          </Link>
           <Link to={`/project/${projectSlug}/${envSlug}/create-service/docker`}>
             <Button size="sm" className="gap-1.5">
               <PlusIcon size={15} strokeWidth={2} /> New docker service
@@ -337,7 +344,8 @@ export default function EnvironmentServiceList({
                 No services yet
               </p>
               <p className="mx-auto max-w-xs text-sm text-muted-foreground">
-                Deploy your first service from a Docker image.
+                Deploy your first service from a Docker image or a Git
+                repository.
               </p>
             </div>
             <div className="relative flex flex-wrap items-center justify-center gap-2">
@@ -346,6 +354,13 @@ export default function EnvironmentServiceList({
               >
                 <Button size="sm" className="gap-1.5">
                   <PlusIcon size={15} strokeWidth={2} /> New docker service
+                </Button>
+              </Link>
+              <Link
+                to={`/project/${projectSlug}/${envSlug}/create-service/git`}
+              >
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <GitBranchIcon size={15} strokeWidth={1.75} /> New git service
                 </Button>
               </Link>
             </div>

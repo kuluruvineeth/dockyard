@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeftIcon,
   ExternalLinkIcon,
+  GitBranchIcon,
   InfoIcon,
   LoaderIcon,
   PackageIcon,
@@ -179,10 +180,17 @@ export async function clientAction({
     return { changeOk: true };
   }
 
-  const { error, data } = await apiClient.PUT(
-    "/api/projects/{project_slug}/{env_slug}/deploy-service/docker/{slug}/",
-    { headers: { ...(await getCsrfTokenHeader()) }, params: { path } }
-  );
+  const headers = { ...(await getCsrfTokenHeader()) };
+  const isGit = formData.get("service_type")?.toString() === "GIT_REPOSITORY";
+  const { error, data } = isGit
+    ? await apiClient.PUT(
+        "/api/projects/{project_slug}/{env_slug}/deploy-service/git/{slug}/",
+        { headers, params: { path } }
+      )
+    : await apiClient.PUT(
+        "/api/projects/{project_slug}/{env_slug}/deploy-service/docker/{slug}/",
+        { headers, params: { path } }
+      );
   if (error) {
     return { error };
   }
@@ -399,6 +407,15 @@ export default function ServiceDetail({
     sourceChange?.new_value as { image?: string } | undefined
   )?.image;
   const sourceImage = service?.image ?? stagedImage ?? "";
+  const isGitService = service?.type === "GIT_REPOSITORY";
+  const gitSourceChange = service?.unapplied_changes.find(
+    (c) => c.field === "git_source"
+  );
+  const gitSource = gitSourceChange?.new_value as
+    | { repository_url?: string; branch_name?: string }
+    | undefined;
+  const repositoryUrl = service?.repository_url ?? gitSource?.repository_url;
+  const branchName = service?.branch_name ?? gitSource?.branch_name;
   const changeErrors = getFormErrorsFromResponseData(
     actionData && "changeError" in actionData
       ? actionData.changeError
@@ -417,8 +434,10 @@ export default function ServiceDetail({
   const deployErrors =
     actionData && "error" in actionData ? actionData.error : null;
 
-  const SourceIcon = PackageIcon;
-  const sourceText = sourceImage || "—";
+  const SourceIcon = isGitService ? GitBranchIcon : PackageIcon;
+  const sourceText = isGitService
+    ? [repositoryUrl, branchName].filter(Boolean).join("  ·  ") || "—"
+    : sourceImage || "—";
 
   const appliedUrls = service?.urls ?? [];
   const pendingUrls = (service?.unapplied_changes ?? []).filter(
@@ -459,6 +478,9 @@ export default function ServiceDetail({
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               {params.slug}
             </h1>
+            <span className="inline-flex items-center bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+              {isGitService ? "git" : "docker"}
+            </span>
           </div>
           <div className="flex min-w-0 items-center gap-1.5 font-mono text-[13px] text-grey">
             <SourceIcon size={13} strokeWidth={1.75} className="flex-none" />
@@ -478,43 +500,63 @@ export default function ServiceDetail({
           id="config"
           className="order-last flex scroll-mt-20 flex-col gap-6 lg:order-first"
         >
-          <SectionCard
-            title="Source"
-            description="The image this service runs and its internal network alias."
-          >
-            <div className="divide-y divide-border/60">
-              <InfoRow
-                label="Network alias"
-                value={service?.network_alias ?? "—"}
-              />
-            </div>
-            <Form method="POST" className={SECTION_FOOTER}>
-              <input type="hidden" name="change_field" value="source" />
-              <input type="hidden" name="change_type" value="UPDATE" />
-              {changeErrors.new_value && (
-                <p className="text-sm text-destructive">
-                  {changeErrors.new_value.join(" ")}
-                </p>
-              )}
-              <FieldSet required className="flex flex-col gap-1.5">
-                <FieldSetLabel>Image</FieldSetLabel>
-                <FieldSetInput
-                  name="image"
-                  className="font-mono"
-                  placeholder="ex: redis:alpine"
-                  defaultValue={sourceImage}
-                  required
+          {isGitService ? (
+            <SectionCard
+              title="Source"
+              description="The repository this service builds from."
+            >
+              <div className="divide-y divide-border/60">
+                <InfoRow label="Repository" value={repositoryUrl ?? "—"} />
+                <InfoRow label="Branch" value={branchName ?? "—"} />
+                <InfoRow
+                  label="Builder"
+                  value={service?.builder ?? "DOCKERFILE"}
                 />
-              </FieldSet>
-              <SubmitButton
-                isPending={isPending}
-                variant="outline"
-                className="w-fit"
-              >
-                {isPending ? "Saving…" : "Update image"}
-              </SubmitButton>
-            </Form>
-          </SectionCard>
+                <InfoRow
+                  label="Network alias"
+                  value={service?.network_alias ?? "—"}
+                />
+              </div>
+            </SectionCard>
+          ) : (
+            <SectionCard
+              title="Source"
+              description="The image this service runs and its internal network alias."
+            >
+              <div className="divide-y divide-border/60">
+                <InfoRow
+                  label="Network alias"
+                  value={service?.network_alias ?? "—"}
+                />
+              </div>
+              <Form method="POST" className={SECTION_FOOTER}>
+                <input type="hidden" name="change_field" value="source" />
+                <input type="hidden" name="change_type" value="UPDATE" />
+                {changeErrors.new_value && (
+                  <p className="text-sm text-destructive">
+                    {changeErrors.new_value.join(" ")}
+                  </p>
+                )}
+                <FieldSet required className="flex flex-col gap-1.5">
+                  <FieldSetLabel>Image</FieldSetLabel>
+                  <FieldSetInput
+                    name="image"
+                    className="font-mono"
+                    placeholder="ex: redis:alpine"
+                    defaultValue={sourceImage}
+                    required
+                  />
+                </FieldSet>
+                <SubmitButton
+                  isPending={isPending}
+                  variant="outline"
+                  className="w-fit"
+                >
+                  {isPending ? "Saving…" : "Update image"}
+                </SubmitButton>
+              </Form>
+            </SectionCard>
+          )}
 
           <SectionCard
             title="Startup command"
@@ -861,6 +903,11 @@ export default function ServiceDetail({
               </a>
             )}
             <Form method="POST">
+              <input
+                type="hidden"
+                name="service_type"
+                value={service?.type ?? "DOCKER_REGISTRY"}
+              />
               <SubmitButton isPending={isPending} className="w-full gap-1.5">
                 {isPending ? (
                   <>
