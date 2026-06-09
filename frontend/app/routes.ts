@@ -12,6 +12,7 @@ export default [
   layout("./routes/dashboard-layout.tsx", [
     index("./routes/home.tsx"),
     route("create-project", "./routes/projects/create-project.tsx"),
+    route("settings", "./routes/settings/registry-credentials.tsx"),
     route(
       "project/:projectSlug/:envSlug",
       "./routes/environments/environment-service-list.tsx"

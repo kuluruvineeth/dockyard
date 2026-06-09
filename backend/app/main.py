@@ -13,6 +13,7 @@ from app.routers import (
     git_services,
     ping,
     projects,
+    registry,
 )
 from app.routers import settings as settings_router
 from app.services import networks
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(docker.router)
     app.include_router(docker_services.router)
     app.include_router(git_services.router)
+    app.include_router(registry.router)
     return app
 
 

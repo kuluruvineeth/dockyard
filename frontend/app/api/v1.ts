@@ -143,6 +143,16 @@ export interface paths {
     /** Deploy Git Service View */
     put: operations["deploy_git_service_view_api_projects__project_slug___env_slug__deploy_service_git__slug___put"];
   };
+  "/api/registry-credentials/": {
+    /** List Registry Credentials */
+    get: operations["list_registry_credentials_api_registry_credentials__get"];
+    /** Create Registry Credentials */
+    post: operations["create_registry_credentials_api_registry_credentials__post"];
+  };
+  "/api/registry-credentials/{credential_id}/": {
+    /** Delete Registry Credentials */
+    delete: operations["delete_registry_credentials_api_registry_credentials__credential_id___delete"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -395,6 +405,40 @@ export interface components {
       slug?: string | null;
       /** Description */
       description?: string | null;
+    };
+    /** RegistryCredentialsRequest */
+    RegistryCredentialsRequest: {
+      /** Name */
+      name: string;
+      /** Url */
+      url: string;
+      /** Username */
+      username: string;
+      /** Password */
+      password: string;
+      /**
+       * Registry Type
+       * @default GENERIC
+       */
+      registry_type?: string;
+    };
+    /** RegistryCredentialsSchema */
+    RegistryCredentialsSchema: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Url */
+      url: string;
+      /** Username */
+      username: string;
+      /** Registry Type */
+      registry_type: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
     };
     /** ResourceLimitResponse */
     ResourceLimitResponse: {
@@ -1667,6 +1711,77 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["DeploymentSchema"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** List Registry Credentials */
+  list_registry_credentials_api_registry_credentials__get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["RegistryCredentialsSchema"][];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Create Registry Credentials */
+  create_registry_credentials_api_registry_credentials__post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RegistryCredentialsRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["RegistryCredentialsSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Delete Registry Credentials */
+  delete_registry_credentials_api_registry_credentials__credential_id___delete: {
+    parameters: {
+      path: {
+        credential_id: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
       };
       /** @description Validation Error */
       422: {

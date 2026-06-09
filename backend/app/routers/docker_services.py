@@ -21,6 +21,7 @@ from app.models import (
     Project,
     Service,
     ServiceType,
+    SharedRegistryCredentials,
 )
 from app.models.base import generate_id
 from app.schemas.services import (
@@ -94,7 +95,27 @@ async def create_docker_service(
     project = await get_project_or_404(db, user, project_slug)
     environment = await get_environment_or_404(db, project, env_slug)
 
-    if not check_if_docker_image_exists(body.image):
+    credentials = None
+    if body.container_registry_credentials_id:
+        result = await db.execute(
+            select(SharedRegistryCredentials).where(
+                SharedRegistryCredentials.id == body.container_registry_credentials_id,
+                SharedRegistryCredentials.owner_id == user.id,
+            )
+        )
+        registry = result.scalar_one_or_none()
+        if registry is None:
+            raise ValidationException(
+                "container_registry_credentials_id",
+                "invalid",
+                "These registry credentials do not exist.",
+            )
+        credentials = {
+            "username": registry.username,
+            "password": registry.password,
+        }
+
+    if not check_if_docker_image_exists(body.image, credentials):
         raise ValidationException(
             "image",
             "invalid",
@@ -110,6 +131,7 @@ async def create_docker_service(
         environment_id=environment.id,
         type=ServiceType.DOCKER_REGISTRY.value,
         deploy_token=secrets.token_hex(16),
+        container_registry_credentials_id=body.container_registry_credentials_id,
     )
     service.network_alias = Service.generate_network_alias(service)
     service.urls = []

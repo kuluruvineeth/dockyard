@@ -12,6 +12,10 @@ from app.models.environment import Environment
 from app.models.healthcheck import HealthCheck, HealthCheckType
 from app.models.port import PortConfiguration
 from app.models.project import Project
+from app.models.registry_credentials import (
+    RegistryType,
+    SharedRegistryCredentials,
+)
 from app.models.service import Builder, Service, ServiceType
 from app.models.shared_env_variable import SharedEnvVariable
 from app.models.shared_volume import SharedVolume
@@ -33,6 +37,8 @@ __all__ = [
     "VolumeMode",
     "SharedVolume",
     "SharedEnvVariable",
+    "SharedRegistryCredentials",
+    "RegistryType",
     "Config",
     "EnvVariable",
     "Service",

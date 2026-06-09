@@ -1226,6 +1226,75 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/registry-credentials/:
+    get:
+      summary: List Registry Credentials
+      operationId: list_registry_credentials_api_registry_credentials__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/RegistryCredentialsSchema'
+                type: array
+                title: Response List Registry Credentials Api Registry Credentials  Get
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+    post:
+      summary: Create Registry Credentials
+      operationId: create_registry_credentials_api_registry_credentials__post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistryCredentialsRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistryCredentialsSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+  /api/registry-credentials/{credential_id}/:
+    delete:
+      summary: Delete Registry Credentials
+      operationId: delete_registry_credentials_api_registry_credentials__credential_id___delete
+      parameters:
+      - name: credential_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Credential Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
 components:
   schemas:
     AuthedResponse:
@@ -1692,6 +1761,67 @@ components:
           title: Description
       type: object
       title: ProjectUpdateRequest
+    RegistryCredentialsRequest:
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Name
+        url:
+          type: string
+          minLength: 1
+          title: Url
+        username:
+          type: string
+          maxLength: 1024
+          minLength: 1
+          title: Username
+        password:
+          type: string
+          minLength: 1
+          title: Password
+        registry_type:
+          type: string
+          title: Registry Type
+          default: GENERIC
+      type: object
+      required:
+      - name
+      - url
+      - username
+      - password
+      title: RegistryCredentialsRequest
+    RegistryCredentialsSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        url:
+          type: string
+          title: Url
+        username:
+          type: string
+          title: Username
+        registry_type:
+          type: string
+          title: Registry Type
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - name
+      - url
+      - username
+      - registry_type
+      - created_at
+      title: RegistryCredentialsSchema
     ResourceLimitResponse:
       properties:
         no_of_cpus:
