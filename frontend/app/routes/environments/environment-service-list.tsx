@@ -10,7 +10,7 @@ import { apiClient } from "~/api/client";
 import { DockerServiceCard } from "~/components/service-cards";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
-import { FieldSetInput } from "~/components/ui/fieldset";
+import { Input } from "~/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -236,7 +236,7 @@ export default function EnvironmentServiceList({
                 <span className="text-sm font-medium tracking-tight">
                   New environment
                 </span>
-                <FieldSetInput
+                <Input
                   name="name"
                   placeholder="staging"
                   className="h-9 font-mono text-sm"
