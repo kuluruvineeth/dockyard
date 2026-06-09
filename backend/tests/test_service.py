@@ -509,6 +509,26 @@ class TestDeployDockerService:
         await auth_client.put(_deploy_url(p, "app"))
         assert len(fake_docker.volumes.list()) == 1
 
+    async def test_deploy_with_config_creates_docker_config(
+        self, auth_client, fake_docker
+    ):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        await auth_client.put(
+            _changes_url(p, "app"),
+            json={
+                "field": "configs",
+                "type": "ADD",
+                "new_value": {
+                    "name": "redis.conf",
+                    "mount_path": "/etc/redis.conf",
+                    "contents": "maxmemory 100mb",
+                },
+            },
+        )
+        await auth_client.put(_deploy_url(p, "app"))
+        assert len(fake_docker.configs.list()) == 1
+
 
 class TestServiceCardStatus:
     async def test_card_status_reflects_deployment(self, auth_client):

@@ -195,6 +195,38 @@ class FakeVolumes:
         return live
 
 
+class FakeConfig:
+    def __init__(self, config_id, name, labels, data):
+        self.id = config_id
+        self.name = name
+        self.attrs = {"Spec": {"Labels": labels or {}}}
+        self.data = data
+        self.removed = False
+
+    def remove(self):
+        self.removed = True
+
+
+class FakeConfigs:
+    def __init__(self):
+        self._configs: dict[str, FakeConfig] = {}
+        self._counter = 0
+
+    def create(self, name, data=None, labels=None, **kwargs):
+        self._counter += 1
+        config = FakeConfig(f"cfg_{self._counter}", name, labels, data)
+        self._configs[name] = config
+        return config
+
+    def get(self, name):
+        if name not in self._configs or self._configs[name].removed:
+            raise docker.errors.NotFound(f"config {name} not found")
+        return self._configs[name]
+
+    def list(self, filters=None):
+        return [c for c in self._configs.values() if not c.removed]
+
+
 class FakeDockerClient:
     NONEXISTANT_IMAGE = NONEXISTANT_IMAGE
 
@@ -204,3 +236,4 @@ class FakeDockerClient:
         self.networks = FakeNetworks()
         self.services = FakeServices()
         self.volumes = FakeVolumes()
+        self.configs = FakeConfigs()

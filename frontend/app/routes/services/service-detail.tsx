@@ -19,7 +19,8 @@ import {
   FieldSet,
   FieldSetCheckbox,
   FieldSetInput,
-  FieldSetLabel
+  FieldSetLabel,
+  FieldSetTextarea
 } from "~/components/ui/fieldset";
 import {
   Tooltip,
@@ -129,6 +130,13 @@ export async function clientAction({
         container_path: formData.get("container_path")?.toString(),
         mode: formData.get("mode")?.toString() || "READ_WRITE",
         host_path: hostPath ? hostPath : undefined
+      };
+    } else if (changeField === "configs") {
+      newValue = {
+        name: formData.get("name")?.toString(),
+        mount_path: formData.get("mount_path")?.toString(),
+        contents: formData.get("contents")?.toString() ?? "",
+        language: formData.get("language")?.toString() || "plaintext"
       };
     } else if (changeField === "healthcheck") {
       const port = formData.get("associated_port")?.toString();
@@ -428,6 +436,10 @@ export default function ServiceDetail({
   const pendingVolumes = (service?.unapplied_changes ?? []).filter(
     (c) => c.field === "volumes" && c.type === "ADD"
   );
+  const appliedConfigs = service?.configs ?? [];
+  const pendingConfigs = (service?.unapplied_changes ?? []).filter(
+    (c) => c.field === "configs" && c.type === "ADD"
+  );
   const pendingCount = service?.unapplied_changes.length ?? 0;
   const lastDeploy = deployments?.[0];
   const recentDeployments = deployments?.slice(0, 3) ?? [];
@@ -697,6 +709,45 @@ export default function ServiceDetail({
           </SectionCard>
 
           <SectionCard
+            title="Config files"
+            description="Files mounted into the service at a chosen path."
+          >
+            <div className="divide-y divide-border/60">
+              {appliedConfigs.length === 0 && pendingConfigs.length === 0 && (
+                <EmptyState>No config files yet.</EmptyState>
+              )}
+              {appliedConfigs.map((config) => (
+                <div
+                  key={config.id}
+                  className="flex items-center gap-2 px-5 py-3 font-mono text-sm transition-colors duration-150 hover:bg-muted/40"
+                >
+                  <span className="truncate">{config.name}</span>
+                  <span className="flex-none text-grey">→</span>
+                  <span className="truncate text-grey">
+                    {config.mount_path}
+                  </span>
+                </div>
+              ))}
+              {pendingConfigs.map((change) => {
+                const value = change.new_value as {
+                  name?: string;
+                  mount_path?: string;
+                };
+                return (
+                  <PendingRow key={change.id}>
+                    {value.name} <span className="text-grey">→</span>{" "}
+                    {value.mount_path}
+                  </PendingRow>
+                );
+              })}
+            </div>
+            <NewServiceConfigForm
+              actionData={actionData}
+              isPending={isPending}
+            />
+          </SectionCard>
+
+          <SectionCard
             title="Healthcheck"
             description="Determines when a deployment is considered healthy."
           >
@@ -955,6 +1006,63 @@ export default function ServiceDetail({
         </div>
       )}
     </section>
+  );
+}
+
+function NewServiceConfigForm({
+  actionData,
+  isPending
+}: {
+  actionData: Route.ComponentProps["actionData"];
+  isPending: boolean;
+}) {
+  const errors = getFormErrorsFromResponseData(
+    actionData && "changeError" in actionData
+      ? actionData.changeError
+      : undefined
+  );
+
+  return (
+    <Form method="POST" className={SECTION_FOOTER}>
+      <input type="hidden" name="change_field" value="configs" />
+      <input type="hidden" name="change_type" value="ADD" />
+
+      {errors.new_value && (
+        <p className="text-sm text-destructive">{errors.new_value.join(" ")}</p>
+      )}
+
+      <div className="flex flex-col gap-4 md:flex-row">
+        <FieldSet required className="inline-flex flex-1 flex-col gap-1.5">
+          <FieldSetLabel>Name</FieldSetLabel>
+          <FieldSetInput
+            name="name"
+            placeholder="ex: redis.conf"
+            className="font-mono"
+            required
+          />
+        </FieldSet>
+        <FieldSet required className="inline-flex flex-1 flex-col gap-1.5">
+          <FieldSetLabel>Mount path</FieldSetLabel>
+          <FieldSetInput
+            name="mount_path"
+            placeholder="ex: /etc/redis.conf"
+            className="font-mono"
+            required
+          />
+        </FieldSet>
+      </div>
+      <FieldSet className="inline-flex flex-col gap-1.5">
+        <FieldSetLabel>Contents</FieldSetLabel>
+        <FieldSetTextarea
+          name="contents"
+          placeholder="file contents…"
+          className="min-h-24 font-mono"
+        />
+      </FieldSet>
+      <SubmitButton isPending={isPending} variant="outline" className="w-fit">
+        {isPending ? "Adding…" : "Add config"}
+      </SubmitButton>
+    </Form>
   );
 }
 

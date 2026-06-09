@@ -4,6 +4,7 @@ from time import monotonic
 
 import docker.errors
 from docker.types import (
+    ConfigReference,
     EndpointSpec,
     Healthcheck,
     NetworkAttachmentConfig,
@@ -100,6 +101,22 @@ def create_docker_volumes_for_deployment(service) -> None:
             )
 
 
+def create_docker_configs_for_deployment(service) -> None:
+    client = docker_helpers.get_docker_client()
+    for config in service.configs:
+        name = docker_helpers.get_config_resource_name(config.id, config.version)
+        try:
+            client.configs.get(name)
+        except docker.errors.NotFound:
+            client.configs.create(
+                name=name,
+                labels=docker_helpers.get_resource_labels(
+                    service.project_id, parent=service.id
+                ),
+                data=config.contents.encode("utf-8"),
+            )
+
+
 class TerminalDeployError(Exception):
     """A failure this deployment can never recover from by being retried.
 
@@ -193,12 +210,28 @@ def create_swarm_service_for_deployment(service, environment, deployment, image)
             exposed_ports[port.host] = port.forwarded
     endpoint_spec = EndpointSpec(ports=exposed_ports) if exposed_ports else None
 
+    config_refs: list[ConfigReference] = []
+    for config in service.configs:
+        name = docker_helpers.get_config_resource_name(config.id, config.version)
+        try:
+            docker_config = client.configs.get(name)
+        except docker.errors.NotFound:
+            continue
+        config_refs.append(
+            ConfigReference(
+                config_id=docker_config.id,
+                config_name=name,
+                filename=config.mount_path,
+            )
+        )
+
     client.services.create(
         image=image,
         command=service.command,
         name=swarm_name,
         healthcheck=build_container_healthcheck(service),
         mounts=mounts,
+        configs=config_refs or None,
         endpoint_spec=endpoint_spec,
         env=envs,
         labels=docker_helpers.get_resource_labels(
@@ -384,6 +417,7 @@ async def start_deployment_service(db, service, environment, deployment, image) 
     await db.commit()
 
     create_docker_volumes_for_deployment(service)
+    create_docker_configs_for_deployment(service)
     create_swarm_service_for_deployment(service, environment, deployment, image)
 
 
