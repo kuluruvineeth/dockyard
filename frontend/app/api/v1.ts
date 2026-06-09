@@ -91,6 +91,10 @@ export interface paths {
     /** Deploy Docker Service View */
     put: operations["deploy_docker_service_view_api_projects__project_slug___env_slug__deploy_service_docker__slug___put"];
   };
+  "/api/projects/{project_slug}/{env_slug}/redeploy-service/docker/{slug}/{deployment_hash}/": {
+    /** Redeploy Docker Service */
+    put: operations["redeploy_docker_service_api_projects__project_slug___env_slug__redeploy_service_docker__slug___deployment_hash___put"];
+  };
   "/api/projects/{project_slug}/{env_slug}/request-service-changes/{slug}/": {
     /** Request Service Changes */
     put: operations["request_service_changes_api_projects__project_slug___env_slug__request_service_changes__slug___put"];
@@ -1119,6 +1123,37 @@ export interface operations {
         project_slug: string;
         env_slug: string;
         slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DeploymentSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Redeploy Docker Service */
+  redeploy_docker_service_api_projects__project_slug___env_slug__redeploy_service_docker__slug___deployment_hash___put: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+        deployment_hash: string;
       };
     };
     responses: {

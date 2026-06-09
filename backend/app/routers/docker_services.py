@@ -274,6 +274,83 @@ async def deploy_docker_service_view(
     return DeploymentSchema.from_deployment(deployment)
 
 
+@router.put(
+    "/api/projects/{project_slug}/{env_slug}/redeploy-service/docker/{slug}/{deployment_hash}/",
+    response_model=DeploymentSchema,
+)
+async def redeploy_docker_service(
+    project_slug: str,
+    env_slug: str,
+    slug: str,
+    deployment_hash: str,
+    user: CurrentUser,
+    db: DBSession,
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+
+    result = await db.execute(
+        select(Deployment).where(Deployment.service_id == service.id)
+    )
+    target = next(
+        (
+            d
+            for d in result.scalars()
+            if d.unprefixed_hash == deployment_hash or d.id == deployment_hash
+        ),
+        None,
+    )
+    if target is None:
+        raise NotFound(
+            f"A deployment with the hash `{deployment_hash}` does not exist."
+        )
+
+    snapshot = target.service_snapshot or {}
+
+    snapshot_image = snapshot.get("image")
+    if snapshot_image is not None and snapshot_image != service.image:
+        service.add_change(
+            DeploymentChange(
+                type=ChangeType.UPDATE.value,
+                field=ChangeField.SOURCE.value,
+                new_value={"image": snapshot_image},
+                old_value={"image": service.image},
+            )
+        )
+    snapshot_command = snapshot.get("command")
+    if snapshot_command != service.command:
+        service.add_change(
+            DeploymentChange(
+                type=ChangeType.UPDATE.value,
+                field=ChangeField.COMMAND.value,
+                new_value=snapshot_command,
+                old_value=service.command,
+            )
+        )
+
+    slot = Deployment.get_next_deployment_slot(service.latest_production_deployment)
+    deployment = Deployment(
+        id=generate_id("dpl_dkr_"),
+        service_id=service.id,
+        slot=slot,
+        commit_message="redeploy",
+        is_redeploy_of_id=target.id,
+    )
+    service.deployments.append(deployment)
+    service.apply_pending_changes(deployment)
+    deployment.service_snapshot = {
+        "image": service.image,
+        "command": service.command,
+    }
+    await db.commit()
+
+    await schedule_deploy_docker_service(db, service, environment, deployment)
+
+    await db.refresh(deployment, ["queued_at"])
+    return DeploymentSchema.from_deployment(deployment)
+
+
 @router.patch(
     "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/",
     response_model=ServiceSchema,

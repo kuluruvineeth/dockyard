@@ -552,3 +552,46 @@ class TestDeploymentList:
             f"/api/projects/{p}/production/service-details/app/deployments/nope/"
         )
         assert response.status_code == 404
+
+
+def _redeploy_url(project_slug, slug, deployment_hash, env_slug="production"):
+    return (
+        f"/api/projects/{project_slug}/{env_slug}/"
+        f"redeploy-service/docker/{slug}/{deployment_hash}/"
+    )
+
+
+class TestRedeployDockerService:
+    async def test_redeploy_restores_image_with_computed_change(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="valkey:7.2-alpine")
+        initial = await auth_client.put(_deploy_url(p, "app"))
+        initial_hash = initial.json()["id"].rsplit("_", 1)[-1]
+
+        await auth_client.put(
+            _changes_url(p, "app"),
+            json={
+                "field": "source",
+                "type": "UPDATE",
+                "new_value": {"image": "valkey:7.3-alpine"},
+            },
+        )
+        await auth_client.put(_deploy_url(p, "app"))
+
+        response = await auth_client.put(_redeploy_url(p, "app", initial_hash))
+        assert response.status_code == 200
+
+        deployments = await auth_client.get(
+            f"/api/projects/{p}/production/service-details/app/deployments/"
+        )
+        assert deployments.json()["count"] == 3
+
+        service = await auth_client.get(_details_url(p, "app"))
+        assert service.json()["image"] == "valkey:7.2-alpine"
+
+    async def test_redeploy_non_existing_deployment(self, auth_client):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        await auth_client.put(_deploy_url(p, "app"))
+        response = await auth_client.put(_redeploy_url(p, "app", "nope"))
+        assert response.status_code == 404
