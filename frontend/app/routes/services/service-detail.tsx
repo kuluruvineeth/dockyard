@@ -6,6 +6,8 @@ import {
   InfoIcon,
   LoaderIcon,
   PackageIcon,
+  PauseIcon,
+  PlayIcon,
   RocketIcon,
   Trash2Icon
 } from "lucide-react";
@@ -96,6 +98,25 @@ export async function clientAction({
             deployment_hash: formData.get("deployment_hash")?.toString() ?? ""
           }
         }
+      }
+    );
+    if (error) {
+      return { error };
+    }
+    await queryClient.invalidateQueries({ queryKey: serviceKey });
+    await queryClient.invalidateQueries({ queryKey: deploymentsKey });
+    return { deployment: data };
+  }
+
+  if (formData.get("intent")?.toString() === "toggle") {
+    const desiredState =
+      formData.get("desired_state")?.toString() === "start" ? "start" : "stop";
+    const { error, data } = await apiClient.PUT(
+      "/api/projects/{project_slug}/{env_slug}/toggle-service/docker/{slug}/",
+      {
+        headers: { ...(await getCsrfTokenHeader()) },
+        params: { path },
+        body: { desired_state: desiredState }
       }
     );
     if (error) {
@@ -425,6 +446,7 @@ export default function ServiceDetail({
   const productionDeployment = deployments?.find(
     (d) => d.is_current_production
   );
+  const isSleeping = productionDeployment?.status === "SLEEPING";
   const headerStatus = productionDeployment
     ? statusFor(productionDeployment.status)
     : null;
@@ -921,6 +943,31 @@ export default function ServiceDetail({
                 )}
               </SubmitButton>
             </Form>
+            {productionDeployment && (
+              <Form method="POST">
+                <input type="hidden" name="intent" value="toggle" />
+                <input
+                  type="hidden"
+                  name="desired_state"
+                  value={isSleeping ? "start" : "stop"}
+                />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="w-full gap-1.5"
+                >
+                  {isSleeping ? (
+                    <>
+                      <PlayIcon size={15} strokeWidth={1.75} /> Resume
+                    </>
+                  ) : (
+                    <>
+                      <PauseIcon size={15} strokeWidth={1.75} /> Pause
+                    </>
+                  )}
+                </Button>
+              </Form>
+            )}
             {pendingCount > 0 && (
               <a
                 href="#config"
