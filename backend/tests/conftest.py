@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 from app import caddy as caddy_module
 from app import db as db_module
 from app import docker_helpers as docker_helpers_module
+from app import git_helpers as git_helpers_module
 from app import session as session_module
 from app import throttling as throttling_module
 from app.main import app
@@ -40,6 +41,21 @@ def fake_caddy(monkeypatch):
     fake = FakeCaddyClient()
     monkeypatch.setattr(caddy_module, "get_caddy_client", lambda: fake)
     return fake
+
+
+@pytest.fixture(autouse=True)
+def fake_git(monkeypatch):
+    def fake_check(repository_url, branch_name=None):
+        if repository_url == git_helpers_module.NON_EXISTENT_REPOSITORY:
+            return False
+        if branch_name == "nonexistent":
+            return False
+        return True
+
+    monkeypatch.setattr(
+        git_helpers_module, "check_if_git_repository_exists", fake_check
+    )
+    return git_helpers_module
 
 
 @pytest_asyncio.fixture

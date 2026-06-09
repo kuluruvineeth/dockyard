@@ -117,6 +117,10 @@ export interface paths {
     /** Cancel Service Changes */
     delete: operations["cancel_service_changes_api_projects__project_slug___env_slug__cancel_service_changes__slug___change_id___delete"];
   };
+  "/api/projects/{project_slug}/{env_slug}/create-service/git/": {
+    /** Create Git Service */
+    post: operations["create_git_service_api_projects__project_slug___env_slug__create_service_git__post"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -245,6 +249,25 @@ export interface components {
       key: string;
       /** Value */
       value: string;
+    };
+    /** GitServiceCreateRequest */
+    GitServiceCreateRequest: {
+      /** Slug */
+      slug?: string | null;
+      /** Repository Url */
+      repository_url: string;
+      /** Branch Name */
+      branch_name: string;
+      /**
+       * Builder
+       * @default DOCKERFILE
+       */
+      builder?: string;
+      /**
+       * Dockerfile Path
+       * @default ./Dockerfile
+       */
+      dockerfile_path?: string;
     };
     /** HealthCheckSchema */
     HealthCheckSchema: {
@@ -400,6 +423,12 @@ export interface components {
       image: string | null;
       /** Command */
       command: string | null;
+      /** Repository Url */
+      repository_url: string | null;
+      /** Branch Name */
+      branch_name: string | null;
+      /** Builder */
+      builder: string | null;
       /** Network Alias */
       network_alias: string | null;
       /**
@@ -1359,6 +1388,40 @@ export interface operations {
       /** @description Successful Response */
       204: {
         content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Create Git Service */
+  create_git_service_api_projects__project_slug___env_slug__create_service_git__post: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GitServiceCreateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["ServiceSchema"];
+        };
       };
       /** @description Validation Error */
       422: {

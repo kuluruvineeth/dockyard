@@ -941,6 +941,46 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/projects/{project_slug}/{env_slug}/create-service/git/:
+    post:
+      summary: Create Git Service
+      operationId: create_git_service_api_projects__project_slug___env_slug__create_service_git__post
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GitServiceCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
 components:
   schemas:
     AuthedResponse:
@@ -1200,6 +1240,36 @@ components:
       - key
       - value
       title: EnvVariableSchema
+    GitServiceCreateRequest:
+      properties:
+        slug:
+          anyOf:
+          - type: string
+            maxLength: 255
+            pattern: ^[-a-zA-Z0-9_]+$
+          - type: 'null'
+          title: Slug
+        repository_url:
+          type: string
+          minLength: 1
+          title: Repository Url
+        branch_name:
+          type: string
+          minLength: 1
+          title: Branch Name
+        builder:
+          type: string
+          title: Builder
+          default: DOCKERFILE
+        dockerfile_path:
+          type: string
+          title: Dockerfile Path
+          default: ./Dockerfile
+      type: object
+      required:
+      - repository_url
+      - branch_name
+      title: GitServiceCreateRequest
     HealthCheckSchema:
       properties:
         id:
@@ -1468,6 +1538,21 @@ components:
           - type: string
           - type: 'null'
           title: Command
+        repository_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Repository Url
+        branch_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Branch Name
+        builder:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Builder
         network_alias:
           anyOf:
           - type: string
@@ -1522,6 +1607,9 @@ components:
       - type
       - image
       - command
+      - repository_url
+      - branch_name
+      - builder
       - network_alias
       - created_at
       - updated_at

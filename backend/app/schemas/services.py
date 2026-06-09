@@ -91,6 +91,9 @@ class ServiceSchema(BaseModel):
     type: str
     image: str | None
     command: str | None
+    repository_url: str | None
+    branch_name: str | None
+    builder: str | None
     network_alias: str | None
     created_at: datetime
     updated_at: datetime
@@ -110,6 +113,9 @@ class ServiceSchema(BaseModel):
             type=service.type,
             image=service.image,
             command=service.command,
+            repository_url=service.repository_url,
+            branch_name=service.branch_name,
+            builder=service.builder,
             network_alias=service.network_alias,
             created_at=service.created_at,
             updated_at=service.updated_at,
@@ -186,6 +192,14 @@ class DockerServiceCreateRequest(BaseModel):
 
 class ServiceUpdateRequest(BaseModel):
     slug: str = Field(min_length=1, max_length=255, pattern=r"^[-a-zA-Z0-9_]+$")
+
+
+class GitServiceCreateRequest(BaseModel):
+    slug: str | None = Field(default=None, max_length=255, pattern=r"^[-a-zA-Z0-9_]+$")
+    repository_url: str = Field(min_length=1)
+    branch_name: str = Field(min_length=1)
+    builder: str = Field(default="DOCKERFILE")
+    dockerfile_path: str = Field(default="./Dockerfile")
 
 
 class ServiceChangeRequest(BaseModel):
