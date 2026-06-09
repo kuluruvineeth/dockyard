@@ -65,6 +65,27 @@ export async function clientAction({
     params.slug
   ).queryKey;
 
+  if (formData.get("intent")?.toString() === "redeploy") {
+    const { error, data } = await apiClient.PUT(
+      "/api/projects/{project_slug}/{env_slug}/redeploy-service/docker/{slug}/{deployment_hash}/",
+      {
+        headers: { ...(await getCsrfTokenHeader()) },
+        params: {
+          path: {
+            ...path,
+            deployment_hash: formData.get("deployment_hash")?.toString() ?? ""
+          }
+        }
+      }
+    );
+    if (error) {
+      return { error };
+    }
+    await queryClient.invalidateQueries({ queryKey: serviceKey });
+    await queryClient.invalidateQueries({ queryKey: deploymentsKey });
+    return { deployment: data };
+  }
+
   const changeField = formData.get("change_field")?.toString();
 
   if (changeField) {

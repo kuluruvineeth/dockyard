@@ -1,5 +1,8 @@
+import { RotateCcwIcon } from "lucide-react";
+import { Form } from "react-router";
 import type { ApiResponse } from "~/api/client";
 import { StatusBadge, type StatusBadgeColor } from "~/components/status-badge";
+import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { cn } from "~/lib/utils";
 
@@ -90,6 +93,18 @@ export function DockerDeploymentCard({
               </span>
             )}
           </div>
+          <Form method="POST">
+            <input type="hidden" name="intent" value="redeploy" />
+            <input type="hidden" name="deployment_hash" value={hash} />
+            <Button
+              type="submit"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+            >
+              <RotateCcwIcon size={15} strokeWidth={1.75} /> Redeploy
+            </Button>
+          </Form>
         </div>
       </div>
     </Card>
