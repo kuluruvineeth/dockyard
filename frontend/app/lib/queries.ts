@@ -58,6 +58,22 @@ export const userQueries = {
 };
 
 export const environmentQueries = {
+  variables: (projectSlug: string, envSlug: string) =>
+    queryOptions({
+      queryKey: ["ENV_VARIABLES", projectSlug, envSlug] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await apiClient.GET(
+          "/api/projects/{project_slug}/environments/{env_slug}/variables/",
+          {
+            params: {
+              path: { project_slug: projectSlug, env_slug: envSlug }
+            },
+            signal
+          }
+        );
+        return data ?? [];
+      }
+    }),
   serviceList: (projectSlug: string, envSlug: string, query?: string) =>
     queryOptions({
       queryKey: ["SERVICE_LIST", projectSlug, envSlug, query ?? ""] as const,

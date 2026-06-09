@@ -10,12 +10,21 @@ from app import docker_helpers
 from app.constants import PRODUCTION_ENV_NAME
 from app.dependencies import CurrentUser, DBSession
 from app.errors import NotFound, ResourceConflict
-from app.models import Deployment, DeploymentStatus, Environment, Project, Service
+from app.models import (
+    Deployment,
+    DeploymentStatus,
+    Environment,
+    Project,
+    Service,
+    SharedEnvVariable,
+)
 from app.schemas.projects import (
     CreateEnvironmentRequest,
     ProjectCreateRequest,
     ProjectSchema,
     ProjectUpdateRequest,
+    SharedEnvVariableRequest,
+    SharedEnvVariableSchema,
     SimpleEnvironmentSchema,
 )
 from app.services import networks, proxy
@@ -245,5 +254,86 @@ async def delete_environment(
         _logger.warning("could not delete environment network: %s", error)
 
     await db.delete(environment)
+    await db.commit()
+    return Response(status_code=204)
+
+
+async def _get_environment_or_404(db, project, env_slug):
+    result = await db.execute(
+        select(Environment).where(
+            Environment.project_id == project.id,
+            Environment.name == env_slug.lower(),
+        )
+    )
+    environment = result.scalar_one_or_none()
+    if environment is None:
+        raise NotFound(
+            f"An environment with the name `{env_slug}` does not exist in this project."
+        )
+    return environment
+
+
+@router.get(
+    "/api/projects/{project_slug}/environments/{env_slug}/variables/",
+    response_model=list[SharedEnvVariableSchema],
+)
+async def list_environment_variables(
+    project_slug: str, env_slug: str, user: CurrentUser, db: DBSession
+):
+    project = await _get_project_or_404(db, user, project_slug)
+    environment = await _get_environment_or_404(db, project, env_slug)
+    return [SharedEnvVariableSchema.from_variable(v) for v in environment.variables]
+
+
+@router.post(
+    "/api/projects/{project_slug}/environments/{env_slug}/variables/",
+    status_code=201,
+    response_model=SharedEnvVariableSchema,
+)
+async def create_environment_variable(
+    project_slug: str,
+    env_slug: str,
+    body: SharedEnvVariableRequest,
+    user: CurrentUser,
+    db: DBSession,
+):
+    project = await _get_project_or_404(db, user, project_slug)
+    environment = await _get_environment_or_404(db, project, env_slug)
+
+    variable = SharedEnvVariable(
+        key=body.key, value=body.value, environment_id=environment.id
+    )
+    db.add(variable)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise ResourceConflict(
+            f"A variable with the key `{body.key}` already exists in this environment."
+        )
+    await db.refresh(variable)
+    return SharedEnvVariableSchema.from_variable(variable)
+
+
+@router.delete(
+    "/api/projects/{project_slug}/environments/{env_slug}/variables/{variable_id}/",
+    status_code=204,
+)
+async def delete_environment_variable(
+    project_slug: str,
+    env_slug: str,
+    variable_id: str,
+    user: CurrentUser,
+    db: DBSession,
+):
+    project = await _get_project_or_404(db, user, project_slug)
+    environment = await _get_environment_or_404(db, project, env_slug)
+
+    variable = next((v for v in environment.variables if v.id == variable_id), None)
+    if variable is None:
+        raise NotFound(
+            f"A variable with the id `{variable_id}` does not exist in this environment."
+        )
+    await db.delete(variable)
     await db.commit()
     return Response(status_code=204)

@@ -13,6 +13,7 @@ from app.models.healthcheck import HealthCheck, HealthCheckType
 from app.models.port import PortConfiguration
 from app.models.project import Project
 from app.models.service import Builder, Service, ServiceType
+from app.models.shared_env_variable import SharedEnvVariable
 from app.models.shared_volume import SharedVolume
 from app.models.url import URL
 from app.models.user import User
@@ -31,6 +32,7 @@ __all__ = [
     "Volume",
     "VolumeMode",
     "SharedVolume",
+    "SharedEnvVariable",
     "Config",
     "EnvVariable",
     "Service",

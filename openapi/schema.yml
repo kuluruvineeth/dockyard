@@ -444,6 +444,119 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/projects/{project_slug}/environments/{env_slug}/variables/:
+    get:
+      summary: List Environment Variables
+      operationId: list_environment_variables_api_projects__project_slug__environments__env_slug__variables__get
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SharedEnvVariableSchema'
+                title: Response List Environment Variables Api Projects  Project Slug  Environments  Env
+                  Slug  Variables  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+    post:
+      summary: Create Environment Variable
+      operationId: create_environment_variable_api_projects__project_slug__environments__env_slug__variables__post
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SharedEnvVariableRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedEnvVariableSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+  /api/projects/{project_slug}/environments/{env_slug}/variables/{variable_id}/:
+    delete:
+      summary: Delete Environment Variable
+      operationId: delete_environment_variable_api_projects__project_slug__environments__env_slug__variables__variable_id___delete
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      - name: variable_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Variable Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/docker/image-search/:
     get:
       summary: Image Search
@@ -1799,6 +1912,38 @@ components:
       - image_version
       - commit_sha
       title: SettingsResponse
+    SharedEnvVariableRequest:
+      properties:
+        key:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Key
+        value:
+          type: string
+          title: Value
+          default: ''
+      type: object
+      required:
+      - key
+      title: SharedEnvVariableRequest
+    SharedEnvVariableSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        key:
+          type: string
+          title: Key
+        value:
+          type: string
+          title: Value
+      type: object
+      required:
+      - id
+      - key
+      - value
+      title: SharedEnvVariableSchema
     SimpleEnvironmentSchema:
       properties:
         id:

@@ -66,6 +66,21 @@ class CreateEnvironmentRequest(BaseModel):
     )
 
 
+class SharedEnvVariableSchema(BaseModel):
+    id: str
+    key: str
+    value: str
+
+    @classmethod
+    def from_variable(cls, variable) -> "SharedEnvVariableSchema":
+        return cls(id=variable.id, key=variable.key, value=variable.value)
+
+
+class SharedEnvVariableRequest(BaseModel):
+    key: str = Field(min_length=1, max_length=255)
+    value: str = ""
+
+
 class ProjectUpdateRequest(BaseModel):
     slug: str | None = Field(default=None, max_length=255, pattern=r"^[-a-zA-Z0-9_]+$")
     description: str | None = None

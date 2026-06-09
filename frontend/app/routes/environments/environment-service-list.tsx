@@ -4,7 +4,8 @@ import {
   GitBranchIcon,
   MoreHorizontalIcon,
   PlusIcon,
-  Trash2Icon
+  Trash2Icon,
+  XIcon
 } from "lucide-react";
 import { Form, Link, redirect } from "react-router";
 import { apiClient } from "~/api/client";
@@ -76,6 +77,56 @@ export async function clientAction({
     throw redirect(`/project/${params.projectSlug}/production`);
   }
 
+  const variablesKey = environmentQueries.variables(
+    params.projectSlug,
+    params.envSlug
+  ).queryKey;
+
+  if (formData.get("intent")?.toString() === "create-var") {
+    const { error } = await apiClient.POST(
+      "/api/projects/{project_slug}/environments/{env_slug}/variables/",
+      {
+        headers: { ...(await getCsrfTokenHeader()) },
+        params: {
+          path: {
+            project_slug: params.projectSlug,
+            env_slug: params.envSlug
+          }
+        },
+        body: {
+          key: formData.get("key")?.toString() ?? "",
+          value: formData.get("value")?.toString() ?? ""
+        }
+      }
+    );
+    if (error) {
+      return { error };
+    }
+    await queryClient.invalidateQueries({ queryKey: variablesKey });
+    return { ok: true };
+  }
+
+  if (formData.get("intent")?.toString() === "delete-var") {
+    const { error } = await apiClient.DELETE(
+      "/api/projects/{project_slug}/environments/{env_slug}/variables/{variable_id}/",
+      {
+        headers: { ...(await getCsrfTokenHeader()) },
+        params: {
+          path: {
+            project_slug: params.projectSlug,
+            env_slug: params.envSlug,
+            variable_id: formData.get("variable_id")?.toString() ?? ""
+          }
+        }
+      }
+    );
+    if (error) {
+      return { error };
+    }
+    await queryClient.invalidateQueries({ queryKey: variablesKey });
+    return { ok: true };
+  }
+
   const { error, data } = await apiClient.POST(
     "/api/projects/{project_slug}/environments/",
     {
@@ -106,7 +157,7 @@ function EnvironmentServiceListSkeleton() {
       </div>
 
       <div className="-mt-2 flex flex-wrap divide-x divide-border border-y border-border">
-        {Array.from({ length: 2 }).map((_, i) => (
+        {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="flex flex-col gap-1.5 px-6 py-3 first:pl-0">
             <div className="h-7 w-8 bg-muted" />
             <div className="h-3 w-16 bg-muted" />
@@ -134,6 +185,17 @@ function EnvironmentServiceListSkeleton() {
           ))}
         </div>
       </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="h-3 w-32 bg-muted" />
+        <div className="border border-border bg-card">
+          <div className="flex items-center gap-2 px-4 py-3">
+            <div className="h-9 w-40 bg-muted" />
+            <div className="h-9 flex-1 bg-muted" />
+            <div className="h-9 w-16 bg-muted" />
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
@@ -147,6 +209,9 @@ export default function EnvironmentServiceList({
     environmentQueries.serviceList(projectSlug, envSlug)
   );
   const { data: project } = useQuery(projectQueries.single(projectSlug));
+  const { data: variables } = useQuery(
+    environmentQueries.variables(projectSlug, envSlug)
+  );
 
   if (!services || !project) return <EnvironmentServiceListSkeleton />;
 
@@ -159,7 +224,8 @@ export default function EnvironmentServiceList({
   const allHealthy = serviceCount > 0 && healthyCount === serviceCount;
   const stats = [
     { label: "Services", value: serviceCount, healthy: false },
-    { label: "Healthy", value: healthyCount, healthy: true }
+    { label: "Healthy", value: healthyCount, healthy: true },
+    { label: "Shared vars", value: variables?.length ?? 0, healthy: false }
   ];
 
   return (
@@ -305,7 +371,7 @@ export default function EnvironmentServiceList({
         )}
       </div>
 
-      {actionData && "error" in actionData && (
+      {actionData && "error" in actionData && actionData.error && (
         <p className="border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           {actionData.error.errors.map((e) => e.detail).join("")}
         </p>
@@ -368,14 +434,76 @@ export default function EnvironmentServiceList({
         )}
       </div>
 
+      <div className="flex flex-col gap-3">
+        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          Shared variables
+          <span className="tabular-nums"> · {variables?.length ?? 0}</span>
+        </h2>
+        <Card className="overflow-hidden p-0">
+          {variables && variables.length > 0 && (
+            <div className="divide-y divide-border">
+              {variables.map((variable) => (
+                <div
+                  key={variable.id}
+                  className="flex items-center justify-between gap-2 px-4 py-2.5 font-mono text-sm transition-colors hover:bg-muted/40"
+                >
+                  <span className="truncate">
+                    <span className="text-foreground">{variable.key}</span>
+                    <span className="text-muted-foreground">=</span>
+                    <span className="text-muted-foreground">
+                      {variable.value}
+                    </span>
+                  </span>
+                  <Form method="POST">
+                    <input type="hidden" name="intent" value="delete-var" />
+                    <input
+                      type="hidden"
+                      name="variable_id"
+                      value={variable.id}
+                    />
+                    <button
+                      type="submit"
+                      className="press-effect p-1 text-muted-foreground transition-colors hover:text-destructive"
+                      title="Delete"
+                    >
+                      <XIcon size={14} />
+                    </button>
+                  </Form>
+                </div>
+              ))}
+            </div>
+          )}
+          <Form
+            method="POST"
+            className="flex items-center gap-2 border-t border-border bg-muted/25 px-4 py-3"
+          >
+            <input type="hidden" name="intent" value="create-var" />
+            <Input
+              name="key"
+              placeholder="KEY"
+              className="h-9 w-40 font-mono text-sm"
+              required
+            />
+            <Input
+              name="value"
+              placeholder="value"
+              className="h-9 flex-1 font-mono text-sm"
+            />
+            <Button type="submit" variant="outline" size="sm">
+              Add
+            </Button>
+          </Form>
+        </Card>
+      </div>
+
       <div className="mt-4 flex flex-col gap-4 border border-destructive/30 bg-card p-5">
         <div className="flex flex-col gap-1">
           <h2 className="text-sm font-semibold tracking-tight text-destructive">
             Danger zone
           </h2>
           <p className="text-sm text-muted-foreground">
-            Deleting a project removes all of its environments and services.
-            This cannot be undone.
+            Deleting a project removes all of its environments, services, and
+            compose stacks. This cannot be undone.
           </p>
         </div>
         <Form

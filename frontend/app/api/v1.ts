@@ -71,6 +71,16 @@ export interface paths {
     /** Delete Environment */
     delete: operations["delete_environment_api_projects__project_slug__environments__env_slug___delete"];
   };
+  "/api/projects/{project_slug}/environments/{env_slug}/variables/": {
+    /** List Environment Variables */
+    get: operations["list_environment_variables_api_projects__project_slug__environments__env_slug__variables__get"];
+    /** Create Environment Variable */
+    post: operations["create_environment_variable_api_projects__project_slug__environments__env_slug__variables__post"];
+  };
+  "/api/projects/{project_slug}/environments/{env_slug}/variables/{variable_id}/": {
+    /** Delete Environment Variable */
+    delete: operations["delete_environment_variable_api_projects__project_slug__environments__env_slug__variables__variable_id___delete"];
+  };
   "/api/docker/image-search/": {
     /** Image Search */
     get: operations["image_search_api_docker_image_search__get"];
@@ -487,6 +497,25 @@ export interface components {
       image_version: string;
       /** Commit Sha */
       commit_sha: string | null;
+    };
+    /** SharedEnvVariableRequest */
+    SharedEnvVariableRequest: {
+      /** Key */
+      key: string;
+      /**
+       * Value
+       * @default
+       */
+      value?: string;
+    };
+    /** SharedEnvVariableSchema */
+    SharedEnvVariableSchema: {
+      /** Id */
+      id: string;
+      /** Key */
+      key: string;
+      /** Value */
+      value: string;
     };
     /** SimpleEnvironmentSchema */
     SimpleEnvironmentSchema: {
@@ -1034,6 +1063,97 @@ export interface operations {
       path: {
         project_slug: string;
         env_slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** List Environment Variables */
+  list_environment_variables_api_projects__project_slug__environments__env_slug__variables__get: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["SharedEnvVariableSchema"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Create Environment Variable */
+  create_environment_variable_api_projects__project_slug__environments__env_slug__variables__post: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SharedEnvVariableRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["SharedEnvVariableSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Delete Environment Variable */
+  delete_environment_variable_api_projects__project_slug__environments__env_slug__variables__variable_id___delete: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        variable_id: string;
       };
     };
     responses: {

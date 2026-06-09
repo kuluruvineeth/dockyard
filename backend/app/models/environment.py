@@ -20,6 +20,11 @@ class Environment(Base, TimestampedModel):
     is_preview: Mapped[bool] = mapped_column(Boolean, default=False)
 
     project = relationship("Project", back_populates="environments")
+    variables = relationship(
+        "SharedEnvVariable",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         UniqueConstraint("name", "project_id", name="uq_environment_name_project"),
