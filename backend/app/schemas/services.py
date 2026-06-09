@@ -94,6 +94,7 @@ class ServiceSchema(BaseModel):
     repository_url: str | None
     branch_name: str | None
     builder: str | None
+    resource_limits: dict | None
     network_alias: str | None
     created_at: datetime
     updated_at: datetime
@@ -116,6 +117,7 @@ class ServiceSchema(BaseModel):
             repository_url=service.repository_url,
             branch_name=service.branch_name,
             builder=service.builder,
+            resource_limits=service.resource_limits,
             network_alias=service.network_alias,
             created_at=service.created_at,
             updated_at=service.updated_at,

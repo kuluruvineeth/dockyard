@@ -782,3 +782,25 @@ class TestDeploymentLogs:
             f"/api/projects/{p}/production/service-details/app/deployments/nope/logs/"
         )
         assert response.status_code == 404
+
+
+class TestResourceLimits:
+    async def test_deploy_applies_resource_limits(self, auth_client, fake_docker):
+        p = await _make_project(auth_client)
+        await _make_service(auth_client, p, "app", image="redis:alpine")
+        await auth_client.put(
+            _changes_url(p, "app"),
+            json={
+                "field": "resource_limits",
+                "type": "UPDATE",
+                "new_value": {
+                    "cpus": 1,
+                    "memory": {"value": 512, "unit": "MEGABYTES"},
+                },
+            },
+        )
+        await auth_client.put(_deploy_url(p, "app"))
+        swarm = fake_docker.services.list()[0]
+        assert swarm.resources is not None
+        assert swarm.resources["Limits"]["NanoCPUs"] == 10**9
+        assert swarm.resources["Limits"]["MemoryBytes"] == 512 * 1024**2

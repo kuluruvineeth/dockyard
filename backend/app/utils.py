@@ -1,3 +1,13 @@
+def convert_value_to_bytes(value: float, unit: str = "BYTES") -> int:
+    multipliers = {
+        "BYTES": 1,
+        "KILOBYTES": 1024,
+        "MEGABYTES": 1024**2,
+        "GIGABYTES": 1024**3,
+    }
+    return int(value * multipliers.get(unit, 1))
+
+
 def strip_slash_if_exists(
     url: str,
     strip_end: bool = False,

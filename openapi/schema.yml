@@ -1809,6 +1809,12 @@ components:
           - type: string
           - type: 'null'
           title: Builder
+        resource_limits:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Resource Limits
         network_alias:
           anyOf:
           - type: string
@@ -1866,6 +1872,7 @@ components:
       - repository_url
       - branch_name
       - builder
+      - resource_limits
       - network_alias
       - created_at
       - updated_at

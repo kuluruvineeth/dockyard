@@ -9,6 +9,7 @@ from docker.types import (
     EndpointSpec,
     Healthcheck,
     NetworkAttachmentConfig,
+    Resources,
     RestartPolicy,
 )
 
@@ -18,6 +19,7 @@ from app.models import DeploymentStatus
 from app.models.healthcheck import HealthCheck, HealthCheckType
 from app.services import git_build, proxy
 from app.session import now
+from app.utils import convert_value_to_bytes
 
 _logger = logging.getLogger("dockyard.deploy")
 
@@ -256,6 +258,18 @@ def create_swarm_service_for_deployment(service, environment, deployment, image)
             )
         )
 
+    resources = None
+    limits = service.resource_limits or {}
+    if limits:
+        nano_cpus = int(limits["cpus"] * 1e9) if limits.get("cpus") else None
+        memory = limits.get("memory")
+        mem_limit = (
+            convert_value_to_bytes(memory["value"], memory.get("unit", "MEGABYTES"))
+            if memory
+            else None
+        )
+        resources = Resources(cpu_limit=nano_cpus, mem_limit=mem_limit)
+
     client.services.create(
         image=image,
         command=service.command,
@@ -263,6 +277,7 @@ def create_swarm_service_for_deployment(service, environment, deployment, image)
         healthcheck=build_container_healthcheck(service),
         mounts=mounts,
         configs=config_refs or None,
+        resources=resources,
         endpoint_spec=endpoint_spec,
         env=envs,
         labels=docker_helpers.get_resource_labels(

@@ -456,6 +456,10 @@ export interface components {
       branch_name: string | null;
       /** Builder */
       builder: string | null;
+      /** Resource Limits */
+      resource_limits: {
+        [key: string]: unknown;
+      } | null;
       /** Network Alias */
       network_alias: string | null;
       /**

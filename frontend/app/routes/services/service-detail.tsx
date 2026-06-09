@@ -169,6 +169,20 @@ export async function clientAction({
         interval_seconds: Number(formData.get("interval_seconds")) || 15,
         associated_port: port ? Number(port) : undefined
       };
+    } else if (changeField === "resource_limits") {
+      const cpus = formData.get("cpus")?.toString()?.trim();
+      const memValue = formData.get("memory_value")?.toString()?.trim();
+      const limits: Record<string, unknown> = {};
+      if (cpus) {
+        limits.cpus = Number(cpus);
+      }
+      if (memValue) {
+        limits.memory = {
+          value: Number(memValue),
+          unit: formData.get("memory_unit")?.toString() || "MEGABYTES"
+        };
+      }
+      newValue = Object.keys(limits).length > 0 ? limits : null;
     } else {
       const urlValue: Record<string, unknown> = {
         domain: formData.get("domain")?.toString(),
@@ -481,6 +495,11 @@ export default function ServiceDetail({
   const pendingConfigs = (service?.unapplied_changes ?? []).filter(
     (c) => c.field === "configs" && c.type === "ADD"
   );
+  const resourceLimits = service?.resource_limits as
+    | { cpus?: number; memory?: { value?: number; unit?: string } }
+    | null
+    | undefined;
+
   const pendingCount = service?.unapplied_changes.length ?? 0;
   const lastDeploy = deployments?.[0];
   const recentDeployments = deployments?.slice(0, 3) ?? [];
@@ -889,6 +908,60 @@ export default function ServiceDetail({
               >
                 {isPending ? "Saving…" : "Save healthcheck"}
               </SubmitButton>
+            </Form>
+          </SectionCard>
+
+          <SectionCard
+            title="Resource limits"
+            description="Cap the CPU and memory this service can use."
+          >
+            <Form method="POST" className="flex flex-col gap-4 px-5 py-5">
+              <input
+                type="hidden"
+                name="change_field"
+                value="resource_limits"
+              />
+              <input type="hidden" name="change_type" value="UPDATE" />
+              <div className="flex flex-col gap-4 md:flex-row md:items-end">
+                <FieldSet className="inline-flex flex-col gap-1.5">
+                  <FieldSetLabel>CPUs</FieldSetLabel>
+                  <FieldSetInput
+                    name="cpus"
+                    className="font-mono"
+                    placeholder="ex: 1"
+                    defaultValue={resourceLimits?.cpus ?? ""}
+                  />
+                </FieldSet>
+                <FieldSet className="inline-flex flex-col gap-1.5">
+                  <FieldSetLabel>Memory</FieldSetLabel>
+                  <FieldSetInput
+                    name="memory_value"
+                    className="font-mono"
+                    placeholder="ex: 512"
+                    defaultValue={resourceLimits?.memory?.value ?? ""}
+                  />
+                </FieldSet>
+                <FieldSet className="inline-flex flex-col gap-1.5">
+                  <FieldSetLabel>Unit</FieldSetLabel>
+                  <select
+                    name="memory_unit"
+                    defaultValue={resourceLimits?.memory?.unit ?? "MEGABYTES"}
+                    className="h-10 border border-border bg-background px-3 text-sm transition-colors duration-150 hover:border-foreground/15 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/70"
+                  >
+                    <option value="MEGABYTES">MB</option>
+                    <option value="GIGABYTES">GB</option>
+                    <option value="KILOBYTES">KB</option>
+                    <option value="BYTES">Bytes</option>
+                  </select>
+                </FieldSet>
+                <SubmitButton
+                  isPending={isPending}
+                  variant="outline"
+                  className="w-fit"
+                >
+                  {isPending ? "Saving…" : "Save limits"}
+                </SubmitButton>
+              </div>
             </Form>
           </SectionCard>
         </div>

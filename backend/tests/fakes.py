@@ -67,11 +67,12 @@ class FakeSwarmService:
     # set False on the class to simulate a replica that never reaches "running"
     running = True
 
-    def __init__(self, service_id, name, image, labels, env=None):
+    def __init__(self, service_id, name, image, labels, env=None, resources=None):
         self.id = service_id
         self.name = name
         self.image = image
         self.env = env or []
+        self.resources = resources
         self.attrs = {"Spec": {"Labels": labels or {}}}
         self.removed = False
 
@@ -97,9 +98,11 @@ class FakeServices:
         self._services: dict[str, FakeSwarmService] = {}
         self._counter = 0
 
-    def create(self, image, name, labels=None, env=None, **kwargs):
+    def create(self, image, name, labels=None, env=None, resources=None, **kwargs):
         self._counter += 1
-        service = FakeSwarmService(f"swarm_{self._counter}", name, image, labels, env)
+        service = FakeSwarmService(
+            f"swarm_{self._counter}", name, image, labels, env, resources
+        )
         self._services[name] = service
         return service
 
