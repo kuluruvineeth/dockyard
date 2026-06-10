@@ -67,6 +67,10 @@ export interface paths {
     /** Create Environment */
     post: operations["create_environment_api_projects__project_slug__environments__post"];
   };
+  "/api/projects/{project_slug}/environments/{env_slug}/clone/": {
+    /** Clone Environment View */
+    post: operations["clone_environment_view_api_projects__project_slug__environments__env_slug__clone__post"];
+  };
   "/api/projects/{project_slug}/environments/{env_slug}/": {
     /** Delete Environment */
     delete: operations["delete_environment_api_projects__project_slug__environments__env_slug___delete"];
@@ -1305,6 +1309,40 @@ export interface operations {
     parameters: {
       path: {
         project_slug: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateEnvironmentRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["SimpleEnvironmentSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Clone Environment View */
+  clone_environment_view_api_projects__project_slug__environments__env_slug__clone__post: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
       };
     };
     requestBody: {

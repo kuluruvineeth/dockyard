@@ -28,6 +28,7 @@ from app.schemas.projects import (
     SimpleEnvironmentSchema,
 )
 from app.services import networks, proxy
+from app.services.clone import clone_environment
 from app.temporal.client import schedule_create_project_resources
 
 _logger = logging.getLogger("dockyard.projects")
@@ -232,6 +233,39 @@ async def create_environment(
         _logger.warning("could not create environment network: %s", error)
 
     return SimpleEnvironmentSchema.from_environment(environment)
+
+
+@router.post(
+    "/api/projects/{project_slug}/environments/{env_slug}/clone/",
+    status_code=201,
+    response_model=SimpleEnvironmentSchema,
+)
+async def clone_environment_view(
+    project_slug: str,
+    env_slug: str,
+    body: CreateEnvironmentRequest,
+    user: CurrentUser,
+    db: DBSession,
+):
+    project = await _get_project_or_404(db, user, project_slug)
+    base_env = await _get_environment_or_404(db, project, env_slug)
+    new_name = body.name.lower()
+
+    try:
+        new_env = await clone_environment(db, base_env, new_name, project)
+    except IntegrityError:
+        await db.rollback()
+        raise ResourceConflict(
+            f"An environment with the name `{new_name}` already exists in this project."
+        )
+
+    await db.refresh(new_env, ["created_at"])
+    try:
+        networks.create_environment_network(new_env.id, project.id)
+    except Exception as error:  # noqa: BLE001
+        _logger.warning("could not create environment network: %s", error)
+
+    return SimpleEnvironmentSchema.from_environment(new_env)
 
 
 @router.delete("/api/projects/{project_slug}/environments/{env_slug}/", status_code=204)
