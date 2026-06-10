@@ -16,6 +16,7 @@ from app.models import (
     DeploymentChange,
     Service,
     ServiceType,
+    WorkspaceRole,
 )
 from app.models.base import generate_id
 from app.routers.docker_services import (
@@ -42,7 +43,9 @@ async def create_compose_stack(
     user: CurrentUser,
     db: DBSession,
 ):
-    project = await get_project_or_404(db, user, project_slug)
+    project = await get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     environment = await get_environment_or_404(db, project, env_slug)
 
     parsed = compose_processor.parse_compose(body.contents)
@@ -170,7 +173,9 @@ async def list_compose_stacks(
 async def deploy_compose_stack(
     project_slug: str, env_slug: str, slug: str, user: CurrentUser, db: DBSession
 ):
-    project = await get_project_or_404(db, user, project_slug)
+    project = await get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     environment = await get_environment_or_404(db, project, env_slug)
     stack = await _get_stack_or_404(db, project, environment, slug)
 
@@ -204,7 +209,9 @@ async def deploy_compose_stack(
 async def archive_compose_stack(
     project_slug: str, env_slug: str, slug: str, user: CurrentUser, db: DBSession
 ):
-    project = await get_project_or_404(db, user, project_slug)
+    project = await get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     environment = await get_environment_or_404(db, project, env_slug)
     stack = await _get_stack_or_404(db, project, environment, slug)
 

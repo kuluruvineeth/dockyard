@@ -23,6 +23,8 @@ from app.models import (
     ServiceMetrics,
     ServiceType,
     SharedRegistryCredentials,
+    WorkspaceMembership,
+    WorkspaceRole,
 )
 from app.models.base import generate_id
 from app.schemas.services import (
@@ -39,6 +41,7 @@ from app.schemas.services import (
 )
 from app.services import metrics, proxy
 from app.services.deploy import _healthcheck_snapshot, build_service_snapshot
+from app.services.workspaces import require_workspace_role
 from app.temporal.client import schedule_deploy_docker_service
 
 RESERVED_PORTS = {80, 443}
@@ -57,13 +60,24 @@ fake = Faker()
 _logger = logging.getLogger("dockyard.docker_services")
 
 
-async def get_project_or_404(db, user, slug: str) -> Project:
+async def get_project_or_404(
+    db, user, slug: str, min_role: WorkspaceRole | None = None
+) -> Project:
     result = await db.execute(
-        select(Project).where(Project.slug == slug, Project.owner_id == user.id)
+        select(Project).where(
+            Project.slug == slug,
+            Project.workspace_id.in_(
+                select(WorkspaceMembership.workspace_id).where(
+                    WorkspaceMembership.user_id == user.id
+                )
+            ),
+        )
     )
     project = result.scalar_one_or_none()
     if project is None:
         raise NotFound(f"A project with the slug `{slug}` does not exist.")
+    if min_role is not None and project.workspace_id is not None:
+        await require_workspace_role(db, user, project.workspace_id, min_role)
     return project
 
 
@@ -94,7 +108,9 @@ async def create_docker_service(
     user: CurrentUser,
     db: DBSession,
 ):
-    project = await get_project_or_404(db, user, project_slug)
+    project = await get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     environment = await get_environment_or_404(db, project, env_slug)
 
     credentials = None
@@ -386,7 +402,9 @@ async def get_service(
 async def deploy_docker_service_view(
     project_slug: str, env_slug: str, slug: str, user: CurrentUser, db: DBSession
 ):
-    project = await get_project_or_404(db, user, project_slug)
+    project = await get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     environment = await get_environment_or_404(db, project, env_slug)
     service = await get_service_or_404(db, project, environment, slug)
 
@@ -420,7 +438,9 @@ async def redeploy_docker_service(
     user: CurrentUser,
     db: DBSession,
 ):
-    project = await get_project_or_404(db, user, project_slug)
+    project = await get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     environment = await get_environment_or_404(db, project, env_slug)
     service = await get_service_or_404(db, project, environment, slug)
 
@@ -512,7 +532,9 @@ async def redeploy_docker_service(
 async def archive_docker_service(
     project_slug: str, env_slug: str, slug: str, user: CurrentUser, db: DBSession
 ):
-    project = await get_project_or_404(db, user, project_slug)
+    project = await get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     environment = await get_environment_or_404(db, project, env_slug)
     service = await get_service_or_404(db, project, environment, slug)
 
@@ -550,7 +572,9 @@ async def toggle_service(
     user: CurrentUser,
     db: DBSession,
 ):
-    project = await get_project_or_404(db, user, project_slug)
+    project = await get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     environment = await get_environment_or_404(db, project, env_slug)
     service = await get_service_or_404(db, project, environment, slug)
 
@@ -593,7 +617,9 @@ async def update_service(
     user: CurrentUser,
     db: DBSession,
 ):
-    project = await get_project_or_404(db, user, project_slug)
+    project = await get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     environment = await get_environment_or_404(db, project, env_slug)
     service = await get_service_or_404(db, project, environment, slug)
 
@@ -768,7 +794,9 @@ async def request_service_changes(
             "item_id", "required", "An item_id is required for UPDATE and DELETE."
         )
 
-    project = await get_project_or_404(db, user, project_slug)
+    project = await get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     environment = await get_environment_or_404(db, project, env_slug)
     service = await get_service_or_404(db, project, environment, slug)
 
@@ -812,7 +840,9 @@ async def cancel_service_changes(
     user: CurrentUser,
     db: DBSession,
 ):
-    project = await get_project_or_404(db, user, project_slug)
+    project = await get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     environment = await get_environment_or_404(db, project, env_slug)
     service = await get_service_or_404(db, project, environment, slug)
 

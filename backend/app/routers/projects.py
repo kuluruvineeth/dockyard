@@ -143,13 +143,17 @@ async def create_project(body: ProjectCreateRequest, user: CurrentUser, db: DBSe
     return ProjectSchema.from_project(project)
 
 
-async def _get_project_or_404(db, user, slug: str) -> Project:
+async def _get_project_or_404(
+    db, user, slug: str, min_role: WorkspaceRole | None = None
+) -> Project:
     result = await db.execute(
         select(Project).where(Project.slug == slug, accessible_projects_filter(user))
     )
     project = result.scalar_one_or_none()
     if project is None:
         raise NotFound(f"A project with the slug `{slug}` does not exist.")
+    if min_role is not None and project.workspace_id is not None:
+        await require_workspace_role(db, user, project.workspace_id, min_role)
     return project
 
 
@@ -164,7 +168,7 @@ async def get_project(slug: str, user: CurrentUser, db: DBSession):
 async def update_project(
     slug: str, body: ProjectUpdateRequest, user: CurrentUser, db: DBSession
 ):
-    project = await _get_project_or_404(db, user, slug)
+    project = await _get_project_or_404(db, user, slug, min_role=WorkspaceRole.MEMBER)
 
     if body.slug is not None:
         project.slug = body.slug.lower()
@@ -185,7 +189,7 @@ async def update_project(
 
 @router.delete("/api/projects/{slug}/", status_code=204)
 async def archive_project(slug: str, user: CurrentUser, db: DBSession):
-    project = await _get_project_or_404(db, user, slug)
+    project = await _get_project_or_404(db, user, slug, min_role=WorkspaceRole.MEMBER)
 
     services = (
         (await db.execute(select(Service).where(Service.project_id == project.id)))
@@ -231,7 +235,9 @@ async def create_environment(
     user: CurrentUser,
     db: DBSession,
 ):
-    project = await _get_project_or_404(db, user, project_slug)
+    project = await _get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     name = body.name.lower()
 
     environment = Environment(name=name, project_id=project.id)
@@ -265,7 +271,9 @@ async def clone_environment_view(
     user: CurrentUser,
     db: DBSession,
 ):
-    project = await _get_project_or_404(db, user, project_slug)
+    project = await _get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     base_env = await _get_environment_or_404(db, project, env_slug)
     new_name = body.name.lower()
 
@@ -290,7 +298,9 @@ async def clone_environment_view(
 async def delete_environment(
     project_slug: str, env_slug: str, user: CurrentUser, db: DBSession
 ):
-    project = await _get_project_or_404(db, user, project_slug)
+    project = await _get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
 
     result = await db.execute(
         select(Environment).where(
@@ -355,7 +365,9 @@ async def create_environment_variable(
     user: CurrentUser,
     db: DBSession,
 ):
-    project = await _get_project_or_404(db, user, project_slug)
+    project = await _get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     environment = await _get_environment_or_404(db, project, env_slug)
 
     variable = SharedEnvVariable(
@@ -384,7 +396,9 @@ async def delete_environment_variable(
     user: CurrentUser,
     db: DBSession,
 ):
-    project = await _get_project_or_404(db, user, project_slug)
+    project = await _get_project_or_404(
+        db, user, project_slug, min_role=WorkspaceRole.MEMBER
+    )
     environment = await _get_environment_or_404(db, project, env_slug)
 
     variable = next((v for v in environment.variables if v.id == variable_id), None)

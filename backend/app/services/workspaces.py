@@ -40,6 +40,11 @@ async def require_workspace_role(
     return membership
 
 
+async def require_project_role(db, user, project, min_role: WorkspaceRole) -> None:
+    if project.workspace_id is not None:
+        await require_workspace_role(db, user, project.workspace_id, min_role)
+
+
 async def get_current_workspace(db, user) -> Workspace | None:
     result = await db.execute(
         select(Workspace)

@@ -17,6 +17,7 @@ from app.models import (
     GitApp,
     Service,
     ServiceType,
+    WorkspaceRole,
 )
 from app.models.base import generate_id
 from app.routers.docker_services import (
@@ -30,6 +31,7 @@ from app.schemas.services import (
     ServiceSchema,
 )
 from app.services.deploy import build_service_snapshot
+from app.services.workspaces import require_project_role
 from app.temporal.client import schedule_deploy_docker_service
 
 router = APIRouter()
@@ -61,6 +63,7 @@ async def create_git_service(
     db: DBSession,
 ):
     project = await get_project_or_404(db, user, project_slug)
+    await require_project_role(db, user, project, WorkspaceRole.MEMBER)
     environment = await get_environment_or_404(db, project, env_slug)
 
     if body.builder not in BUILDER_OPTION_FIELDS:
@@ -146,6 +149,7 @@ async def deploy_git_service_view(
     project_slug: str, env_slug: str, slug: str, user: CurrentUser, db: DBSession
 ):
     project = await get_project_or_404(db, user, project_slug)
+    await require_project_role(db, user, project, WorkspaceRole.MEMBER)
     environment = await get_environment_or_404(db, project, env_slug)
     service = await get_service_or_404(db, project, environment, slug)
 
@@ -180,6 +184,7 @@ async def toggle_auto_deploy(
     db: DBSession,
 ):
     project = await get_project_or_404(db, user, project_slug)
+    await require_project_role(db, user, project, WorkspaceRole.MEMBER)
     environment = await get_environment_or_404(db, project, env_slug)
     service = await get_service_or_404(db, project, environment, slug)
 

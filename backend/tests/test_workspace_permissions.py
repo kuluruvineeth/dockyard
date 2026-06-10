@@ -85,3 +85,53 @@ class TestRoleEnforcement:
         )
         response = await auth_client.delete(f"/api/workspaces/{ws.id}/")
         assert response.status_code == 403
+
+
+class TestResourceRBAC:
+    async def _add_member(self, session, ws_id, username, role):
+        u = User(username=username, is_active=True)
+        u.set_password(f"{username}pass1")
+        session.add(u)
+        await session.flush()
+        session.add(
+            WorkspaceMembership(user_id=u.id, workspace_id=ws_id, role=role.value)
+        )
+        await session.commit()
+
+    async def test_guest_reads_but_cannot_mutate(self, auth_client, session, user):
+        await auth_client.post("/api/projects/", json={"slug": "shared"})
+        ws = await get_current_workspace(session, user)
+        await self._add_member(session, ws.id, "rguest", WorkspaceRole.GUEST)
+
+        await auth_client.post(
+            "/api/auth/login",
+            json={"username": "rguest", "password": "rguestpass1"},
+        )
+        assert (await auth_client.get("/api/projects/shared/")).status_code == 200
+
+        create = await auth_client.post(
+            "/api/projects/shared/production/create-service/docker/",
+            json={"slug": "s", "image": "nginx:latest"},
+        )
+        assert create.status_code == 403
+        env = await auth_client.post(
+            "/api/projects/shared/environments/", json={"name": "staging"}
+        )
+        assert env.status_code == 403
+
+    async def test_non_owner_member_can_access_and_mutate(
+        self, auth_client, session, user
+    ):
+        await auth_client.post("/api/projects/", json={"slug": "shared2"})
+        ws = await get_current_workspace(session, user)
+        await self._add_member(session, ws.id, "rmember", WorkspaceRole.MEMBER)
+
+        await auth_client.post(
+            "/api/auth/login",
+            json={"username": "rmember", "password": "rmemberpass1"},
+        )
+        create = await auth_client.post(
+            "/api/projects/shared2/production/create-service/docker/",
+            json={"slug": "svc", "image": "nginx:latest"},
+        )
+        assert create.status_code == 201
