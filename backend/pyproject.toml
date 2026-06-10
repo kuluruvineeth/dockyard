@@ -20,6 +20,8 @@ dependencies = [
     "shortuuid>=1.0.13",
     "faker>=40.21.0",
     "temporalio>=1.28.0",
+    "pyjwt>=2.13.0",
+    "cryptography>=48.0.1",
 ]
 
 [dependency-groups]
