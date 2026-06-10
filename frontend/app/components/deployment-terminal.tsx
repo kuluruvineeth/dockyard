@@ -58,8 +58,18 @@ export function DeploymentTerminal({
       `${proto}://${window.location.host}/api/projects/${projectSlug}/${envSlug}/service-details/${serviceSlug}/deployments/${hash}/terminal/`
     );
     ws.binaryType = "arraybuffer";
+
+    const sendResize = () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows })
+        );
+      }
+    };
+
     ws.onopen = () => {
       fit.fit();
+      sendResize();
       setStatus("open");
     };
     ws.onmessage = (event) => {
@@ -74,15 +84,19 @@ export function DeploymentTerminal({
       setStatus("closed");
     };
 
-    const disposable = term.onData((data) => {
-      if (ws.readyState === WebSocket.OPEN) ws.send(data);
+    const onData = term.onData((data) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "input", data }));
+      }
     });
-    const onResize = () => fit.fit();
-    window.addEventListener("resize", onResize);
+    const onResize = term.onResize(() => sendResize());
+    const onWindowResize = () => fit.fit();
+    window.addEventListener("resize", onWindowResize);
 
     return () => {
-      window.removeEventListener("resize", onResize);
-      disposable.dispose();
+      window.removeEventListener("resize", onWindowResize);
+      onData.dispose();
+      onResize.dispose();
       ws.close();
       term.dispose();
     };

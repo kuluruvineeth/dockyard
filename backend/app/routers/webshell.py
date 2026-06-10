@@ -1,6 +1,10 @@
 import asyncio
+import fcntl
+import json
 import os
 import pty
+import struct
+import termios
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
@@ -112,8 +116,21 @@ async def deployment_terminal(
     loop.add_reader(master_fd, _on_pty_output)
     try:
         while True:
-            data = await websocket.receive_text()
-            os.write(master_fd, data.encode("utf-8"))
+            raw = await websocket.receive_text()
+            try:
+                message = json.loads(raw)
+            except ValueError:
+                continue
+            if message.get("type") == "resize":
+                cols = int(message.get("cols", 80))
+                rows = int(message.get("rows", 24))
+                fcntl.ioctl(
+                    master_fd,
+                    termios.TIOCSWINSZ,
+                    struct.pack("HHHH", rows, cols, 0, 0),
+                )
+            else:
+                os.write(master_fd, str(message.get("data", "")).encode("utf-8"))
     except WebSocketDisconnect:
         pass
     finally:
