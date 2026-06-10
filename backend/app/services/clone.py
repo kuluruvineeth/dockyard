@@ -9,6 +9,10 @@ from app.models import (
     EnvVariable,
     HealthCheck,
     PortConfiguration,
+    PreviewDeployState,
+    PreviewEnvMetadata,
+    PreviewSourceTrigger,
+    Project,
     Service,
     Volume,
 )
@@ -25,8 +29,10 @@ def _clone_row(obj, cls):
     return cls(**data)
 
 
-async def clone_environment(db, base_env, new_name, project) -> Environment:
-    new_env = Environment(name=new_name, project_id=project.id)
+async def clone_environment(
+    db, base_env, new_name, project, is_preview: bool = False
+) -> Environment:
+    new_env = Environment(name=new_name, project_id=project.id, is_preview=is_preview)
     db.add(new_env)
     await db.flush()
 
@@ -57,4 +63,41 @@ async def clone_environment(db, base_env, new_name, project) -> Environment:
         db.add(cloned)
 
     await db.commit()
+    return new_env
+
+
+async def create_preview_environment(
+    db,
+    template,
+    git_app,
+    branch_name: str,
+    head_repository_url: str,
+    pr_number: int | None = None,
+    source_trigger: str = PreviewSourceTrigger.PULL_REQUEST.value,
+) -> Environment:
+    project = await db.get(Project, template.project_id)
+    name = (
+        (f"preview-{pr_number}" if pr_number is not None else f"preview-{branch_name}")
+        .lower()
+        .replace("/", "-")
+    )
+
+    new_env = await clone_environment(
+        db, template.base_environment, name, project, is_preview=True
+    )
+
+    metadata = PreviewEnvMetadata(
+        environment_id=new_env.id,
+        template_id=template.id,
+        git_app_id=git_app.id if git_app is not None else None,
+        pr_number=pr_number,
+        branch_name=branch_name,
+        head_repository_url=head_repository_url,
+        source_trigger=source_trigger,
+        deploy_state=PreviewDeployState.APPROVED.value,
+        auto_teardown=template.auto_teardown,
+    )
+    db.add(metadata)
+    await db.commit()
+    await db.refresh(new_env)
     return new_env

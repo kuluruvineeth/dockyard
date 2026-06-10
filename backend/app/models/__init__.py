@@ -13,6 +13,12 @@ from app.models.environment import Environment
 from app.models.git_app import GitApp, GitHubApp, GitlabApp, GitRepository
 from app.models.healthcheck import HealthCheck, HealthCheckType
 from app.models.port import PortConfiguration
+from app.models.preview import (
+    PreviewDeployState,
+    PreviewEnvMetadata,
+    PreviewEnvTemplate,
+    PreviewSourceTrigger,
+)
 from app.models.project import Project
 from app.models.registry_credentials import (
     RegistryType,
@@ -46,6 +52,10 @@ __all__ = [
     "ComposeStack",
     "ServiceMetrics",
     "SSHKey",
+    "PreviewEnvTemplate",
+    "PreviewEnvMetadata",
+    "PreviewSourceTrigger",
+    "PreviewDeployState",
     "GitApp",
     "GitHubApp",
     "GitlabApp",

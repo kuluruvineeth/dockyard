@@ -25,6 +25,14 @@ class Environment(Base, TimestampedModel):
         lazy="selectin",
         cascade="all, delete-orphan",
     )
+    preview_metadata = relationship(
+        "PreviewEnvMetadata",
+        uselist=False,
+        back_populates="environment",
+        foreign_keys="PreviewEnvMetadata.environment_id",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         UniqueConstraint("name", "project_id", name="uq_environment_name_project"),
