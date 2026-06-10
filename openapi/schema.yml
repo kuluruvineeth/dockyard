@@ -1276,6 +1276,52 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/projects/{project_slug}/{env_slug}/service-details/{slug}/toggle-auto-deploy/:
+    put:
+      summary: Toggle Auto Deploy
+      operationId: toggle_auto_deploy_api_projects__project_slug___env_slug__service_details__slug__toggle_auto_deploy__put
+      parameters:
+      - name: project_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Slug
+      - name: env_slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Env Slug
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutoDeployRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/registry-credentials/:
     get:
       summary: List Registry Credentials
@@ -1617,6 +1663,15 @@ components:
       required:
       - user
       title: AuthedResponse
+    AutoDeployRequest:
+      properties:
+        enabled:
+          type: boolean
+          title: Enabled
+      type: object
+      required:
+      - enabled
+      title: AutoDeployRequest
     CSRFResponse:
       properties:
         details:
@@ -2031,6 +2086,11 @@ components:
           type: string
           minLength: 1
           title: Branch Name
+        git_app_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Git App Id
         builder:
           type: string
           title: Builder
@@ -2448,6 +2508,14 @@ components:
           - type: string
           - type: 'null'
           title: Branch Name
+        git_app_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Git App Id
+        auto_deploy_enabled:
+          type: boolean
+          title: Auto Deploy Enabled
         builder:
           anyOf:
           - type: string
@@ -2515,6 +2583,8 @@ components:
       - command
       - repository_url
       - branch_name
+      - git_app_id
+      - auto_deploy_enabled
       - builder
       - resource_limits
       - network_alias

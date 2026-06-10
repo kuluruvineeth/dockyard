@@ -93,6 +93,8 @@ class ServiceSchema(BaseModel):
     command: str | None
     repository_url: str | None
     branch_name: str | None
+    git_app_id: str | None
+    auto_deploy_enabled: bool
     builder: str | None
     resource_limits: dict | None
     network_alias: str | None
@@ -116,6 +118,8 @@ class ServiceSchema(BaseModel):
             command=service.command,
             repository_url=service.repository_url,
             branch_name=service.branch_name,
+            git_app_id=service.git_app_id,
+            auto_deploy_enabled=service.auto_deploy_enabled,
             builder=service.builder,
             resource_limits=service.resource_limits,
             network_alias=service.network_alias,
@@ -200,6 +204,7 @@ class GitServiceCreateRequest(BaseModel):
     slug: str | None = Field(default=None, max_length=255, pattern=r"^[-a-zA-Z0-9_]+$")
     repository_url: str = Field(min_length=1)
     branch_name: str = Field(min_length=1)
+    git_app_id: str | None = None
     builder: str = Field(default="DOCKERFILE")
     dockerfile_path: str = Field(default="./Dockerfile")
 

@@ -428,3 +428,70 @@ class TestSetupGitlabApp:
         assert ga["gitlab"]["name"] == "gl"
         assert ga["gitlab"]["app_id"] == "appid"
         assert ga["gitlab"]["is_installed"] is True
+
+
+def _git_create_url(p):
+    return f"/api/projects/{p}/production/create-service/git/"
+
+
+def _details_url(p):
+    return f"/api/projects/{p}/production/service-details/app/"
+
+
+class TestLinkServiceToApp:
+    async def test_git_service_linked_and_applied_at_deploy(
+        self, auth_client, monkeypatch
+    ):
+        _patch_manifest(monkeypatch)
+        await auth_client.post(SETUP, json={"code": "abc"})
+        git_app_id = (await auth_client.get(LIST)).json()[0]["id"]
+        await auth_client.post("/api/projects/", json={"slug": "p"})
+        response = await auth_client.post(
+            _git_create_url("p"),
+            json={
+                "slug": "app",
+                "repository_url": "https://github.com/octocat/repo.git",
+                "branch_name": "main",
+                "builder": "DOCKERFILE",
+                "git_app_id": git_app_id,
+            },
+        )
+        assert response.status_code == 201
+        await auth_client.put("/api/projects/p/production/deploy-service/git/app/")
+        details = (await auth_client.get(_details_url("p"))).json()
+        assert details["git_app_id"] == git_app_id
+
+    async def test_invalid_git_app_rejected(self, auth_client):
+        await auth_client.post("/api/projects/", json={"slug": "p2"})
+        response = await auth_client.post(
+            _git_create_url("p2"),
+            json={
+                "slug": "app",
+                "repository_url": "https://github.com/octocat/repo.git",
+                "branch_name": "main",
+                "builder": "DOCKERFILE",
+                "git_app_id": "git_con_doesnotexist",
+            },
+        )
+        assert response.status_code == 400
+
+    async def test_toggle_auto_deploy(self, auth_client):
+        await auth_client.post("/api/projects/", json={"slug": "p3"})
+        await auth_client.post(
+            _git_create_url("p3"),
+            json={
+                "slug": "app",
+                "repository_url": "https://github.com/octocat/repo.git",
+                "branch_name": "main",
+                "builder": "DOCKERFILE",
+            },
+        )
+        details = (await auth_client.get(_details_url("p3"))).json()
+        assert details["auto_deploy_enabled"] is True
+
+        response = await auth_client.put(
+            "/api/projects/p3/production/service-details/app/toggle-auto-deploy/",
+            json={"enabled": False},
+        )
+        assert response.status_code == 200
+        assert response.json()["auto_deploy_enabled"] is False

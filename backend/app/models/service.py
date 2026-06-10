@@ -256,6 +256,7 @@ class Service(Base, TimestampedModel):
                 self.repository_url = value.get("repository_url", self.repository_url)
                 self.branch_name = value.get("branch_name", self.branch_name)
                 self.commit_sha = value.get("commit_sha", self.commit_sha)
+                self.git_app_id = value.get("git_app_id", self.git_app_id)
             elif field == "healthcheck":
                 if change.new_value is None:
                     self.healthcheck = None

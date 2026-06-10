@@ -2,6 +2,8 @@ import secrets
 
 from faker import Faker
 from fastapi import APIRouter
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app import git_helpers
@@ -12,6 +14,7 @@ from app.models import (
     ChangeType,
     Deployment,
     DeploymentChange,
+    GitApp,
     Service,
     ServiceType,
 )
@@ -31,6 +34,11 @@ from app.temporal.client import schedule_deploy_docker_service
 
 router = APIRouter()
 fake = Faker()
+
+
+class AutoDeployRequest(BaseModel):
+    enabled: bool
+
 
 BUILDER_OPTION_FIELDS = {
     "DOCKERFILE": "dockerfile_builder_options",
@@ -70,6 +78,22 @@ async def create_git_service(
             " does not exist or could not be reached.",
         )
 
+    if body.git_app_id is not None:
+        result = await db.execute(select(GitApp).where(GitApp.id == body.git_app_id))
+        if result.scalar_one_or_none() is None:
+            raise ValidationException(
+                "git_app_id",
+                "invalid",
+                "This git app connection does not exist.",
+            )
+
+    git_source = {
+        "repository_url": body.repository_url,
+        "branch_name": body.branch_name,
+    }
+    if body.git_app_id is not None:
+        git_source["git_app_id"] = body.git_app_id
+
     slug = (body.slug or fake.slug() or "service").lower()
     # git source + builder live in staged changes, applied at deploy time
     service = Service(
@@ -90,10 +114,7 @@ async def create_git_service(
         DeploymentChange(
             type=ChangeType.UPDATE.value,
             field=ChangeField.GIT_SOURCE.value,
-            new_value={
-                "repository_url": body.repository_url,
-                "branch_name": body.branch_name,
-            },
+            new_value=git_source,
         ),
         DeploymentChange(
             type=ChangeType.UPDATE.value,
@@ -144,3 +165,25 @@ async def deploy_git_service_view(
 
     await db.refresh(deployment, ["queued_at"])
     return DeploymentSchema.from_deployment(deployment)
+
+
+@router.put(
+    "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/toggle-auto-deploy/",
+    response_model=ServiceSchema,
+)
+async def toggle_auto_deploy(
+    project_slug: str,
+    env_slug: str,
+    slug: str,
+    body: AutoDeployRequest,
+    user: CurrentUser,
+    db: DBSession,
+):
+    project = await get_project_or_404(db, user, project_slug)
+    environment = await get_environment_or_404(db, project, env_slug)
+    service = await get_service_or_404(db, project, environment, slug)
+
+    service.auto_deploy_enabled = body.enabled
+    response = ServiceSchema.from_service(service)
+    await db.commit()
+    return response

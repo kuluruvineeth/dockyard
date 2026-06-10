@@ -147,6 +147,10 @@ export interface paths {
     /** Deploy Git Service View */
     put: operations["deploy_git_service_view_api_projects__project_slug___env_slug__deploy_service_git__slug___put"];
   };
+  "/api/projects/{project_slug}/{env_slug}/service-details/{slug}/toggle-auto-deploy/": {
+    /** Toggle Auto Deploy */
+    put: operations["toggle_auto_deploy_api_projects__project_slug___env_slug__service_details__slug__toggle_auto_deploy__put"];
+  };
   "/api/registry-credentials/": {
     /** List Registry Credentials */
     get: operations["list_registry_credentials_api_registry_credentials__get"];
@@ -204,6 +208,11 @@ export interface components {
       user: components["schemas"]["UserSchema"];
       /** Membership */
       membership?: null;
+    };
+    /** AutoDeployRequest */
+    AutoDeployRequest: {
+      /** Enabled */
+      enabled: boolean;
     };
     /** CSRFResponse */
     CSRFResponse: {
@@ -405,6 +414,8 @@ export interface components {
       repository_url: string;
       /** Branch Name */
       branch_name: string;
+      /** Git App Id */
+      git_app_id?: string | null;
       /**
        * Builder
        * @default DOCKERFILE
@@ -643,6 +654,10 @@ export interface components {
       repository_url: string | null;
       /** Branch Name */
       branch_name: string | null;
+      /** Git App Id */
+      git_app_id: string | null;
+      /** Auto Deploy Enabled */
+      auto_deploy_enabled: boolean;
       /** Builder */
       builder: string | null;
       /** Resource Limits */
@@ -1913,6 +1928,41 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["DeploymentSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Toggle Auto Deploy */
+  toggle_auto_deploy_api_projects__project_slug___env_slug__service_details__slug__toggle_auto_deploy__put: {
+    parameters: {
+      path: {
+        project_slug: string;
+        env_slug: string;
+        slug: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AutoDeployRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ServiceSchema"];
         };
       };
       /** @description Validation Error */
