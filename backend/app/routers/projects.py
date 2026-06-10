@@ -17,6 +17,7 @@ from app.models import (
     Project,
     Service,
     SharedEnvVariable,
+    WorkspaceMembership,
 )
 from app.schemas.projects import (
     CreateEnvironmentRequest,
@@ -29,6 +30,7 @@ from app.schemas.projects import (
 )
 from app.services import networks, proxy
 from app.services.clone import clone_environment
+from app.services.workspaces import get_current_workspace
 from app.temporal.client import schedule_create_project_resources
 
 _logger = logging.getLogger("dockyard.projects")
@@ -38,7 +40,11 @@ fake = Faker()
 
 
 def accessible_projects_filter(user):
-    return Project.owner_id == user.id
+    return Project.workspace_id.in_(
+        select(WorkspaceMembership.workspace_id).where(
+            WorkspaceMembership.user_id == user.id
+        )
+    )
 
 
 async def _service_counts(db, project_ids):
@@ -109,7 +115,13 @@ async def list_projects(
 async def create_project(body: ProjectCreateRequest, user: CurrentUser, db: DBSession):
     slug = (body.slug or fake.slug() or "project").lower()
 
-    project = Project(owner_id=user.id, slug=slug, description=body.description)
+    workspace = await get_current_workspace(db, user)
+    project = Project(
+        owner_id=user.id,
+        workspace_id=workspace.id if workspace is not None else None,
+        slug=slug,
+        description=body.description,
+    )
     project.environments = [Environment(name=PRODUCTION_ENV_NAME)]
     db.add(project)
     try:

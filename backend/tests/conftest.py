@@ -13,6 +13,7 @@ from app import throttling as throttling_module
 from app.main import app
 from app.models import Base, User
 from app.services import git_build as git_build_module
+from app.services.workspaces import create_default_workspace
 from tests.fakes import FakeCaddyClient, FakeDockerClient
 
 # In memory, and never on disk, so the suite can neither wipe a running dev
@@ -116,6 +117,8 @@ async def user(session):
     u = User(username="kuluruvineeth", is_superuser=True, is_active=True)
     u.set_password("password")
     session.add(u)
+    await session.flush()
+    await create_default_workspace(session, u)
     await session.commit()
     await session.refresh(u)
     return u

@@ -1,8 +1,14 @@
 from app.models import Environment, Project
+from app.services.workspaces import get_current_workspace
 
 
 async def _make_project(session, owner, slug):
-    project = Project(owner_id=owner.id, slug=slug)
+    workspace = await get_current_workspace(session, owner)
+    project = Project(
+        owner_id=owner.id,
+        workspace_id=workspace.id if workspace is not None else None,
+        slug=slug,
+    )
     project.environments = [Environment(name="production")]
     session.add(project)
     await session.commit()

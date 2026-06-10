@@ -14,10 +14,14 @@ class Project(Base, TimestampedModel):
     owner_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
+    workspace_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspace.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     slug: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     owner = relationship("User")
+    workspace = relationship("Workspace")
     environments = relationship(
         "Environment",
         back_populates="project",

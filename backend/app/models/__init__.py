@@ -32,6 +32,7 @@ from app.models.ssh_key import SSHKey
 from app.models.url import URL
 from app.models.user import User
 from app.models.volume import Volume, VolumeMode
+from app.models.workspace import Workspace, WorkspaceMembership, WorkspaceRole
 
 __all__ = [
     "Base",
@@ -56,6 +57,9 @@ __all__ = [
     "PreviewEnvMetadata",
     "PreviewSourceTrigger",
     "PreviewDeployState",
+    "Workspace",
+    "WorkspaceMembership",
+    "WorkspaceRole",
     "GitApp",
     "GitHubApp",
     "GitlabApp",

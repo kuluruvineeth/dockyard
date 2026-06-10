@@ -33,6 +33,7 @@ from app.security import (
     logout,
     update_session_auth_hash,
 )
+from app.services.workspaces import create_default_workspace
 from app.session import now
 from app.throttling import ScopedRateThrottle
 from app.validators import ValidationError as PasswordValidationError
@@ -126,6 +127,8 @@ async def create_initial_user(
     user = User(username=body.username, is_superuser=True, is_active=True)
     user.set_password(body.password)
     db.add(user)
+    await db.flush()
+    await create_default_workspace(db, user)
     await db.commit()
     await db.refresh(user)
     login(request, user)
