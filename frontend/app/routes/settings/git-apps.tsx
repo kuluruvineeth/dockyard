@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { GitBranchIcon } from "lucide-react";
+import { ArrowUpRightIcon } from "lucide-react";
 import type { ApiResponse } from "~/api/client";
+import { GitConnect, GithubMark, GitlabMark } from "~/components/git-connect";
 import {
   SettingsEmpty,
   SettingsLayout,
@@ -9,7 +10,6 @@ import {
   SettingsSection
 } from "~/components/settings-nav";
 import { StatusBadge } from "~/components/status-badge";
-import { Button } from "~/components/ui/button";
 import { gitAppsQueries } from "~/lib/queries";
 import { queryClient } from "~/root";
 import { metaTitle } from "~/utils";
@@ -39,14 +39,7 @@ export default function GitAppsPage() {
         description="Authorize Dockyard to read your repositories and receive push events."
       >
         <div className="px-5 py-5">
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" className="gap-1.5">
-              <GitBranchIcon size={15} strokeWidth={1.75} /> Connect GitHub
-            </Button>
-            <Button type="button" variant="outline" className="gap-1.5">
-              <GitBranchIcon size={15} strokeWidth={1.75} /> Connect GitLab
-            </Button>
-          </div>
+          <GitConnect />
         </div>
       </SettingsSection>
 
@@ -89,7 +82,13 @@ function GitAppRow({ app }: { app: GitApp }) {
   return (
     <SettingsRow
       tileNeutral
-      tile={<GitBranchIcon size={17} strokeWidth={1.75} />}
+      tile={
+        isGithub ? (
+          <GithubMark className="size-[18px]" />
+        ) : (
+          <GitlabMark className="size-[18px]" />
+        )
+      }
       primary={
         <span className="truncate font-medium tracking-tight">
           {inner.name}
@@ -97,17 +96,27 @@ function GitAppRow({ app }: { app: GitApp }) {
       }
       secondary={
         <span className="tabular-nums">
-          {isGithub ? "GitHub" : "GitLab"} ·{" "}
+          {isGithub ? "GitHub" : "GitLab"} ·{""}
           {repoCount === 1 ? "1 repository" : `${repoCount} repositories`}
         </span>
       }
       right={
-        <StatusBadge
-          color={installed ? "green" : "yellow"}
-          pingState={installed ? "static" : "hidden"}
-        >
-          {installed ? "Installed" : "Pending install"}
-        </StatusBadge>
+        <>
+          {isGithub && !installed && app.github !== null && (
+            <a
+              href={`${app.github.app_url}/installations/new`}
+              className="inline-flex items-center gap-1 border border-input bg-background px-2.5 py-1 text-[13px] font-medium shadow-xs transition-colors duration-150 hover:border-foreground/15 hover:bg-accent"
+            >
+              Install <ArrowUpRightIcon size={13} strokeWidth={2} />
+            </a>
+          )}
+          <StatusBadge
+            color={installed ? "green" : "yellow"}
+            pingState={installed ? "static" : "hidden"}
+          >
+            {installed ? "Installed" : "Pending install"}
+          </StatusBadge>
+        </>
       }
     />
   );
