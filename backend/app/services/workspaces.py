@@ -18,6 +18,16 @@ async def create_default_workspace(db, user) -> Workspace:
     return workspace
 
 
+async def get_membership(db, user, workspace_id) -> WorkspaceMembership | None:
+    result = await db.execute(
+        select(WorkspaceMembership).where(
+            WorkspaceMembership.user_id == user.id,
+            WorkspaceMembership.workspace_id == workspace_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
 async def get_current_workspace(db, user) -> Workspace | None:
     result = await db.execute(
         select(Workspace)

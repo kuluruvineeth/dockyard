@@ -1771,6 +1771,98 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/workspaces/{workspace_id}/invitations/:
+    post:
+      summary: Create Invitation
+      operationId: create_invitation_api_workspaces__workspace_id__invitations__post
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvitationRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceInvitationSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+    get:
+      summary: List Invitations
+      operationId: list_invitations_api_workspaces__workspace_id__invitations__get
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceInvitationSchema'
+                title: Response List Invitations Api Workspaces  Workspace Id  Invitations  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+  /api/invitations/{token}/accept/:
+    post:
+      summary: Accept Invitation
+      operationId: accept_invitation_api_invitations__token__accept__post
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Token
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceMembershipSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
 components:
   schemas:
     AuthedResponse:
@@ -1965,6 +2057,21 @@ components:
       required:
       - name
       title: CreateEnvironmentRequest
+    CreateInvitationRequest:
+      properties:
+        username:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Username
+        role:
+          type: integer
+          title: Role
+          default: 30
+      type: object
+      required:
+      - username
+      title: CreateInvitationRequest
     DeploymentListResponse:
       properties:
         results:
@@ -3061,6 +3168,57 @@ components:
       - container_path
       - host_path
       title: VolumeSchema
+    WorkspaceInvitationSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        workspace_id:
+          type: string
+          title: Workspace Id
+        username:
+          type: string
+          title: Username
+        token:
+          type: string
+          title: Token
+        role:
+          type: integer
+          title: Role
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+      type: object
+      required:
+      - id
+      - workspace_id
+      - username
+      - token
+      - role
+      - expires_at
+      title: WorkspaceInvitationSchema
+    WorkspaceMembershipSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        workspace_id:
+          type: string
+          title: Workspace Id
+        user_id:
+          type: integer
+          title: User Id
+        role:
+          type: integer
+          title: Role
+      type: object
+      required:
+      - id
+      - workspace_id
+      - user_id
+      - role
+      title: WorkspaceMembershipSchema
     ValidationErrorItem:
       type: object
       properties:

@@ -215,6 +215,16 @@ export interface paths {
     /** Delete Ssh Key */
     delete: operations["delete_ssh_key_api_ssh_keys__slug___delete"];
   };
+  "/api/workspaces/{workspace_id}/invitations/": {
+    /** List Invitations */
+    get: operations["list_invitations_api_workspaces__workspace_id__invitations__get"];
+    /** Create Invitation */
+    post: operations["create_invitation_api_workspaces__workspace_id__invitations__post"];
+  };
+  "/api/invitations/{token}/accept/": {
+    /** Accept Invitation */
+    post: operations["accept_invitation_api_invitations__token__accept__post"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -315,6 +325,16 @@ export interface components {
     CreateEnvironmentRequest: {
       /** Name */
       name: string;
+    };
+    /** CreateInvitationRequest */
+    CreateInvitationRequest: {
+      /** Username */
+      username: string;
+      /**
+       * Role
+       * @default 30
+       */
+      role?: number;
     };
     /** DeploymentListResponse */
     DeploymentListResponse: {
@@ -885,6 +905,35 @@ export interface components {
       container_path: string;
       /** Host Path */
       host_path: string | null;
+    };
+    /** WorkspaceInvitationSchema */
+    WorkspaceInvitationSchema: {
+      /** Id */
+      id: string;
+      /** Workspace Id */
+      workspace_id: string;
+      /** Username */
+      username: string;
+      /** Token */
+      token: string;
+      /** Role */
+      role: number;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+    };
+    /** WorkspaceMembershipSchema */
+    WorkspaceMembershipSchema: {
+      /** Id */
+      id: string;
+      /** Workspace Id */
+      workspace_id: string;
+      /** User Id */
+      user_id: number;
+      /** Role */
+      role: number;
     };
     ValidationErrorItem: {
       code: string;
@@ -2433,6 +2482,95 @@ export interface operations {
       /** @description Successful Response */
       204: {
         content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** List Invitations */
+  list_invitations_api_workspaces__workspace_id__invitations__get: {
+    parameters: {
+      path: {
+        workspace_id: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["WorkspaceInvitationSchema"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Create Invitation */
+  create_invitation_api_workspaces__workspace_id__invitations__post: {
+    parameters: {
+      path: {
+        workspace_id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateInvitationRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["WorkspaceInvitationSchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Accept Invitation */
+  accept_invitation_api_invitations__token__accept__post: {
+    parameters: {
+      path: {
+        token: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["WorkspaceMembershipSchema"];
+        };
       };
       /** @description Validation Error */
       422: {
