@@ -8,7 +8,10 @@ from app.config import settings
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 # webhook endpoints are authenticated by provider signatures, not CSRF tokens
-CSRF_EXEMPT_PREFIXES = ("/api/connectors/github/webhook",)
+CSRF_EXEMPT_PREFIXES = (
+    "/api/connectors/github/webhook",
+    "/api/connectors/gitlab/webhook",
+)
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):

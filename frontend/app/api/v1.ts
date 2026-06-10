@@ -197,6 +197,10 @@ export interface paths {
     /** Github Webhook */
     post: operations["github_webhook_api_connectors_github_webhook__post"];
   };
+  "/api/connectors/gitlab/webhook/": {
+    /** Gitlab Webhook */
+    post: operations["gitlab_webhook_api_connectors_gitlab_webhook__post"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -437,6 +441,8 @@ export interface components {
       gitlab_url: string;
       /** App Id */
       app_id: string;
+      /** Webhook Secret */
+      webhook_secret: string;
       /** Is Installed */
       is_installed: boolean;
       /** Repositories */
@@ -2270,6 +2276,21 @@ export interface operations {
   };
   /** Github Webhook */
   github_webhook_api_connectors_github_webhook__post: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: never;
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Gitlab Webhook */
+  gitlab_webhook_api_connectors_gitlab_webhook__post: {
     responses: {
       /** @description Successful Response */
       200: {

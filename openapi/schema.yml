@@ -1650,6 +1650,18 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/connectors/gitlab/webhook/:
+    post:
+      summary: Gitlab Webhook
+      operationId: gitlab_webhook_api_connectors_gitlab_webhook__post
+      responses:
+        '200':
+          description: Successful Response
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
 components:
   schemas:
     AuthedResponse:
@@ -2118,6 +2130,9 @@ components:
         app_id:
           type: string
           title: App Id
+        webhook_secret:
+          type: string
+          title: Webhook Secret
         is_installed:
           type: boolean
           title: Is Installed
@@ -2132,6 +2147,7 @@ components:
       - name
       - gitlab_url
       - app_id
+      - webhook_secret
       - is_installed
       - repositories
       title: GitlabAppSchema

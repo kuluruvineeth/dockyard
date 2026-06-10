@@ -47,6 +47,7 @@ class GitlabAppSchema(BaseModel):
     name: str
     gitlab_url: str
     app_id: str
+    webhook_secret: str
     is_installed: bool
     repositories: list[GitRepositorySchema]
 
@@ -57,6 +58,7 @@ class GitlabAppSchema(BaseModel):
             name=gl.name,
             gitlab_url=gl.gitlab_url,
             app_id=gl.app_id,
+            webhook_secret=gl.webhook_secret,
             is_installed=gl.is_installed,
             repositories=[
                 GitRepositorySchema(

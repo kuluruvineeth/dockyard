@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -147,6 +148,9 @@ class GitlabApp(Base, TimestampedModel):
     app_id: Mapped[str] = mapped_column(String(255))
     secret: Mapped[str] = mapped_column(Text)
     refresh_token: Mapped[str] = mapped_column(Text)
+    webhook_secret: Mapped[str] = mapped_column(
+        String(65), unique=True, default=lambda: secrets.token_hex(32)
+    )
 
     repositories = relationship(
         "GitRepository",

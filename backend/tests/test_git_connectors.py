@@ -495,3 +495,95 @@ class TestLinkServiceToApp:
         )
         assert response.status_code == 200
         assert response.json()["auto_deploy_enabled"] is False
+
+
+GITLAB_WEBHOOK = "/api/connectors/gitlab/webhook/"
+
+
+class TestGitlabWebhook:
+    async def test_push_triggers_auto_deploy(self, auth_client, session, monkeypatch):
+        monkeypatch.setattr(
+            "app.git_connectors_helpers.exchange_gitlab_oauth_code",
+            lambda *a, **k: {"access_token": "at", "refresh_token": "rt"},
+        )
+        await auth_client.post(
+            GITLAB_SETUP,
+            json={
+                "name": "gl",
+                "redirect_uri": "https://dky/cb",
+                "app_id": "appid",
+                "secret": "sec",
+                "code": "code",
+            },
+        )
+        ga = (await auth_client.get(LIST)).json()[0]
+        git_app_id = ga["id"]
+        webhook_secret = ga["gitlab"]["webhook_secret"]
+        assert len(webhook_secret) > 0
+
+        await auth_client.post("/api/projects/", json={"slug": "proj"})
+        project = (
+            await session.execute(_select(_Project).where(_Project.slug == "proj"))
+        ).scalar_one()
+        env = (
+            await session.execute(
+                _select(_Environment).where(_Environment.project_id == project.id)
+            )
+        ).scalar_one()
+        service = _Service(
+            id=_generate_id("srv_git_"),
+            slug="webapp",
+            project_id=project.id,
+            environment_id=env.id,
+            type=_ServiceType.GIT_REPOSITORY.value,
+            git_app_id=git_app_id,
+            repository_url="https://gitlab.com/me/repo.git",
+            branch_name="main",
+            auto_deploy_enabled=True,
+            deploy_token=_secrets.token_hex(16),
+        )
+        service.network_alias = _Service.generate_network_alias(service)
+        service.urls = []
+        service.ports = []
+        service.configs = []
+        service.volumes = []
+        service.env_variables = []
+        service.changes = []
+        session.add(service)
+        await session.commit()
+
+        payload = {
+            "ref": "refs/heads/main",
+            "repository": {"git_http_url": "https://gitlab.com/me/repo.git"},
+            "commits": [
+                {"id": "sha1", "message": "first", "author": {"name": "A"}},
+                {"id": "sha2", "message": "head", "author": {"name": "Dev"}},
+            ],
+        }
+        response = await auth_client.post(
+            GITLAB_WEBHOOK,
+            json=payload,
+            headers={"x-gitlab-event": "Push Hook", "x-gitlab-token": webhook_secret},
+        )
+        assert response.status_code == 200
+        deps = (
+            (
+                await session.execute(
+                    _select(_Deployment).where(_Deployment.service_id == service.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(deps) == 1
+        assert deps[0].trigger_method == "AUTO"
+        assert deps[0].commit_sha == "sha2"
+        assert deps[0].commit_author_name == "Dev"
+
+    async def test_invalid_token_404(self, auth_client):
+        response = await auth_client.post(
+            GITLAB_WEBHOOK,
+            json={"ref": "refs/heads/main"},
+            headers={"x-gitlab-event": "Push Hook", "x-gitlab-token": "wrong"},
+        )
+        assert response.status_code == 404

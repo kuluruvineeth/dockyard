@@ -274,3 +274,46 @@ async def github_webhook(request: Request, db: DBSession):
             await db.commit()
 
     return Response(status_code=200)
+
+
+@router.post("/api/connectors/gitlab/webhook/", response_class=Response)
+async def gitlab_webhook(request: Request, db: DBSession):
+    data = await request.json()
+    event = request.headers.get("x-gitlab-event")
+    token = request.headers.get("x-gitlab-token") or ""
+
+    git_app = (
+        await db.execute(
+            select(GitApp)
+            .join(GitlabApp, GitApp.gitlab_app_id == GitlabApp.id)
+            .where(GitlabApp.webhook_secret == token)
+        )
+    ).scalar_one_or_none()
+    if git_app is None:
+        raise NotFound("Invalid webhook secret")
+
+    if event == "Push Hook":
+        commits = data.get("commits", [])
+        head_commit = commits[-1] if commits else None
+        ref = data.get("ref", "")
+        if ref.startswith("refs/heads/"):
+            branch_name = ref.replace("refs/heads/", "")
+            repository_url = data["repository"]["git_http_url"]
+            services = (
+                (
+                    await db.execute(
+                        select(Service).where(
+                            Service.git_app_id == git_app.id,
+                            Service.repository_url == repository_url,
+                            Service.branch_name == branch_name,
+                            Service.auto_deploy_enabled.is_(True),
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for service in services:
+                await _auto_deploy_service(db, service, head_commit)
+
+    return Response(status_code=200)
