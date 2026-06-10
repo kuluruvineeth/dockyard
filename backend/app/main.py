@@ -17,6 +17,7 @@ from app.routers import (
     projects,
     registry,
     ssh_keys,
+    webshell,
 )
 from app.routers import settings as settings_router
 from app.services import networks
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(compose.router)
     app.include_router(git_connectors.router)
     app.include_router(ssh_keys.router)
+    app.include_router(webshell.router)
     return app
 
 

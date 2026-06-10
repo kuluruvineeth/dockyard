@@ -1,8 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { ActivityIcon, RotateCcwIcon, ScrollTextIcon } from "lucide-react";
+import {
+  ActivityIcon,
+  RotateCcwIcon,
+  ScrollTextIcon,
+  TerminalIcon
+} from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Form } from "react-router";
 import type { ApiResponse } from "~/api/client";
+import { DeploymentTerminal } from "~/components/deployment-terminal";
 import { StatusBadge, type StatusBadgeColor } from "~/components/status-badge";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
@@ -46,7 +52,7 @@ function SlotBadge({ slot }: { slot: string }) {
   );
 }
 
-type Panel = "metrics" | "logs" | null;
+type Panel = "metrics" | "logs" | "terminal" | null;
 
 function SegButton({
   active,
@@ -93,6 +99,7 @@ export function DockerDeploymentCard({
   const [panel, setPanel] = useState<Panel>(null);
   const showMetrics = panel === "metrics";
   const showLogs = panel === "logs";
+  const showTerminal = panel === "terminal";
 
   const { data: logs, isLoading: logsLoading } = useQuery({
     ...serviceQueries.deploymentLogs(projectSlug, envSlug, serviceSlug, hash),
@@ -168,6 +175,14 @@ export function DockerDeploymentCard({
               >
                 <ScrollTextIcon size={14} strokeWidth={1.75} /> Logs
               </SegButton>
+              <SegButton
+                active={showTerminal}
+                onClick={() =>
+                  setPanel((p) => (p === "terminal" ? null : "terminal"))
+                }
+              >
+                <TerminalIcon size={14} strokeWidth={1.75} /> Terminal
+              </SegButton>
             </div>
             <Form method="POST">
               <input type="hidden" name="intent" value="redeploy" />
@@ -242,6 +257,15 @@ export function DockerDeploymentCard({
             )}
           </div>
         </div>
+      )}
+
+      {showTerminal && (
+        <DeploymentTerminal
+          projectSlug={projectSlug}
+          envSlug={envSlug}
+          serviceSlug={serviceSlug}
+          hash={hash}
+        />
       )}
     </Card>
   );
