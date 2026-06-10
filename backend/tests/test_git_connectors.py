@@ -694,3 +694,123 @@ class TestPullRequestPreview:
             .all()
         )
         assert len(previews_after) == 0
+
+
+def _mr_payload(action: str, iid: int, branch: str = "feat/x") -> dict:
+    return {
+        "object_kind": "merge_request",
+        "project": {"git_http_url": "https://gitlab.com/me/repo.git"},
+        "object_attributes": {
+            "action": action,
+            "iid": iid,
+            "source_branch": branch,
+        },
+    }
+
+
+class TestGitlabMergeRequestPreview:
+    async def test_mr_open_creates_preview_close_tears_down(
+        self, auth_client, session, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "app.git_connectors_helpers.exchange_gitlab_oauth_code",
+            lambda *a, **k: {"access_token": "at", "refresh_token": "rt"},
+        )
+        await auth_client.post(
+            GITLAB_SETUP,
+            json={
+                "name": "gl",
+                "redirect_uri": "https://dky/cb",
+                "app_id": "appid",
+                "secret": "sec",
+                "code": "code",
+            },
+        )
+        ga = (await auth_client.get(LIST)).json()[0]
+        git_app_id = ga["id"]
+        webhook_secret = ga["gitlab"]["webhook_secret"]
+
+        await auth_client.post("/api/projects/", json={"slug": "proj"})
+        project = (
+            await session.execute(_select(_Project).where(_Project.slug == "proj"))
+        ).scalar_one()
+        prod = (
+            await session.execute(
+                _select(_Environment).where(
+                    _Environment.project_id == project.id,
+                    _Environment.name == "production",
+                )
+            )
+        ).scalar_one()
+
+        service = _Service(
+            id=_generate_id("srv_git_"),
+            slug="web",
+            project_id=project.id,
+            environment_id=prod.id,
+            type=_ServiceType.GIT_REPOSITORY.value,
+            git_app_id=git_app_id,
+            repository_url="https://gitlab.com/me/repo.git",
+            branch_name="main",
+            builder="DOCKERFILE",
+            dockerfile_builder_options={"dockerfile_path": "./Dockerfile"},
+            deploy_token=_secrets.token_hex(16),
+        )
+        service.network_alias = _Service.generate_network_alias(service)
+        service.urls = []
+        service.ports = []
+        service.configs = []
+        service.volumes = []
+        service.env_variables = []
+        service.changes = []
+        session.add(service)
+
+        template = _PreviewEnvTemplate(
+            project_id=project.id,
+            slug="default",
+            base_environment_id=prod.id,
+            auto_teardown=True,
+            is_default=True,
+        )
+        session.add(template)
+        await session.commit()
+
+        headers = {
+            "x-gitlab-event": "Merge Request Hook",
+            "x-gitlab-token": webhook_secret,
+        }
+        opened = await auth_client.post(
+            GITLAB_WEBHOOK, json=_mr_payload("open", 3), headers=headers
+        )
+        assert opened.status_code == 200
+
+        previews = (
+            (
+                await session.execute(
+                    _select(_Environment).where(
+                        _Environment.project_id == project.id,
+                        _Environment.is_preview.is_(True),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(previews) == 1
+        assert previews[0].name == "preview-3"
+
+        closed = await auth_client.post(
+            GITLAB_WEBHOOK, json=_mr_payload("close", 3), headers=headers
+        )
+        assert closed.status_code == 200
+
+        previews_after = (
+            (
+                await session.execute(
+                    _select(_Environment).where(_Environment.is_preview.is_(True))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(previews_after) == 0

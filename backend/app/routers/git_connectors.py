@@ -386,6 +386,61 @@ async def github_webhook(request: Request, db: DBSession):
     return Response(status_code=200)
 
 
+async def _handle_gitlab_merge_request(db, data: dict, git_app) -> None:
+    attrs = data.get("object_attributes", {})
+    action = attrs.get("action")
+    mr_number = attrs.get("iid")
+    branch_name = attrs.get("source_branch")
+    repository_url = data["project"]["git_http_url"]
+
+    if action in ("open", "reopen"):
+        service = (
+            await db.execute(
+                select(Service)
+                .where(
+                    Service.git_app_id == git_app.id,
+                    Service.repository_url == repository_url,
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if service is None:
+            return
+
+        template = (
+            await db.execute(
+                select(PreviewEnvTemplate)
+                .where(
+                    PreviewEnvTemplate.project_id == service.project_id,
+                    PreviewEnvTemplate.is_default.is_(True),
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if template is None:
+            return
+
+        preview = await create_preview_environment(
+            db, template, git_app, branch_name, repository_url, mr_number
+        )
+        await _deploy_preview_environment(db, preview, branch_name)
+    elif action in ("close", "merge"):
+        meta = (
+            await db.execute(
+                select(PreviewEnvMetadata)
+                .where(
+                    PreviewEnvMetadata.git_app_id == git_app.id,
+                    PreviewEnvMetadata.pr_number == mr_number,
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if meta is not None and meta.auto_teardown:
+            environment = await db.get(Environment, meta.environment_id)
+            if environment is not None:
+                await _teardown_preview_environment(db, environment)
+
+
 @router.post("/api/connectors/gitlab/webhook/", response_class=Response)
 async def gitlab_webhook(request: Request, db: DBSession):
     data = await request.json()
@@ -425,5 +480,7 @@ async def gitlab_webhook(request: Request, db: DBSession):
             )
             for service in services:
                 await _auto_deploy_service(db, service, head_commit)
+    elif event == "Merge Request Hook":
+        await _handle_gitlab_merge_request(db, data, git_app)
 
     return Response(status_code=200)
