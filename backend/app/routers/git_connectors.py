@@ -12,6 +12,8 @@ from app.models import (
     GitHubApp,
     GitlabApp,
     GitRepository,
+    PreviewEnvMetadata,
+    PreviewEnvTemplate,
     Service,
 )
 from app.models.base import generate_id
@@ -20,6 +22,7 @@ from app.schemas.git_connectors import (
     SetupGithubAppRequest,
     SetupGitlabAppRequest,
 )
+from app.services.clone import create_preview_environment
 from app.services.deploy import build_service_snapshot
 from app.temporal.client import schedule_deploy_docker_service
 
@@ -87,6 +90,110 @@ async def _handle_push(db, data: dict, body: bytes, signature: str) -> Response:
         head_commit = data.get("head_commit")
         for service in services:
             await _auto_deploy_service(db, service, head_commit)
+
+    return Response(status_code=200)
+
+
+async def _deploy_preview_environment(db, preview_env, branch_name: str):
+    services = (
+        (
+            await db.execute(
+                select(Service).where(Service.environment_id == preview_env.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for service in services:
+        if service.repository_url is not None:
+            service.branch_name = branch_name
+        await _auto_deploy_service(db, service, None)
+
+
+async def _teardown_preview_environment(db, environment) -> None:
+    services = (
+        (
+            await db.execute(
+                select(Service).where(Service.environment_id == environment.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for service in services:
+        await db.delete(service)
+    await db.delete(environment)
+    await db.commit()
+
+
+async def _handle_pull_request(db, data: dict, body: bytes, signature: str) -> Response:
+    installation_id = data["installation"]["id"]
+    git_app = (
+        await db.execute(
+            select(GitApp)
+            .join(GitHubApp, GitApp.github_app_id == GitHubApp.id)
+            .where(GitHubApp.installation_id == installation_id)
+        )
+    ).scalar_one_or_none()
+    if git_app is None:
+        raise NotFound(
+            "This github app has not been registered in this Dockyard instance"
+        )
+    if not git_app.github.verify_signature(body, signature):
+        raise BadRequest("Invalid webhook signature")
+
+    action = data.get("action")
+    pull_request = data["pull_request"]
+    pr_number = pull_request["number"]
+    branch_name = pull_request["head"]["ref"]
+    repository_url = f"https://github.com/{data['repository']['full_name']}.git"
+
+    if action in ("opened", "reopened"):
+        service = (
+            await db.execute(
+                select(Service)
+                .where(
+                    Service.git_app_id == git_app.id,
+                    Service.repository_url == repository_url,
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if service is None:
+            return Response(status_code=200)
+
+        template = (
+            await db.execute(
+                select(PreviewEnvTemplate)
+                .where(
+                    PreviewEnvTemplate.project_id == service.project_id,
+                    PreviewEnvTemplate.is_default.is_(True),
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if template is None:
+            return Response(status_code=200)
+
+        preview = await create_preview_environment(
+            db, template, git_app, branch_name, repository_url, pr_number
+        )
+        await _deploy_preview_environment(db, preview, branch_name)
+    elif action == "closed":
+        meta = (
+            await db.execute(
+                select(PreviewEnvMetadata)
+                .where(
+                    PreviewEnvMetadata.git_app_id == git_app.id,
+                    PreviewEnvMetadata.pr_number == pr_number,
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if meta is not None and meta.auto_teardown:
+            environment = await db.get(Environment, meta.environment_id)
+            if environment is not None:
+                await _teardown_preview_environment(db, environment)
 
     return Response(status_code=200)
 
@@ -248,6 +355,9 @@ async def github_webhook(request: Request, db: DBSession):
 
     if event == "push":
         return await _handle_push(db, data, body, signature)
+
+    if event == "pull_request":
+        return await _handle_pull_request(db, data, body, signature)
 
     if event == "ping":
         gh = await _get_app_or_404(db, data["hook"]["app_id"])

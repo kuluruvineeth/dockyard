@@ -12,6 +12,7 @@ from app.models import Deployment as _Deployment
 from app.models import Environment as _Environment
 from app.models import GitHubApp
 from app.models import GitlabApp as _GitlabApp
+from app.models import PreviewEnvTemplate as _PreviewEnvTemplate
 from app.models import Project as _Project
 from app.models import Service as _Service
 from app.models import ServiceType as _ServiceType
@@ -587,3 +588,109 @@ class TestGitlabWebhook:
             headers={"x-gitlab-event": "Push Hook", "x-gitlab-token": "wrong"},
         )
         assert response.status_code == 404
+
+
+def _pr_payload(action: str, number: int, ref: str = "feature/x") -> dict:
+    return {
+        "action": action,
+        "installation": {"id": 999},
+        "repository": {"full_name": "octocat/repo"},
+        "pull_request": {"number": number, "head": {"ref": ref}},
+    }
+
+
+class TestPullRequestPreview:
+    async def test_opened_creates_preview_closed_tears_down(
+        self, auth_client, session, monkeypatch
+    ):
+        _patch_manifest(monkeypatch)
+        await auth_client.post(SETUP, json={"code": "abc"})
+        await auth_client.post(
+            SETUP, json={"state": "install:12345", "installation_id": 999}
+        )
+        git_app_id = (await auth_client.get(LIST)).json()[0]["id"]
+
+        await auth_client.post("/api/projects/", json={"slug": "proj"})
+        project = (
+            await session.execute(_select(_Project).where(_Project.slug == "proj"))
+        ).scalar_one()
+        prod = (
+            await session.execute(
+                _select(_Environment).where(
+                    _Environment.project_id == project.id,
+                    _Environment.name == "production",
+                )
+            )
+        ).scalar_one()
+
+        service = _Service(
+            id=_generate_id("srv_git_"),
+            slug="web",
+            project_id=project.id,
+            environment_id=prod.id,
+            type=_ServiceType.GIT_REPOSITORY.value,
+            git_app_id=git_app_id,
+            repository_url="https://github.com/octocat/repo.git",
+            branch_name="main",
+            builder="DOCKERFILE",
+            dockerfile_builder_options={"dockerfile_path": "./Dockerfile"},
+            deploy_token=_secrets.token_hex(16),
+        )
+        service.network_alias = _Service.generate_network_alias(service)
+        service.urls = []
+        service.ports = []
+        service.configs = []
+        service.volumes = []
+        service.env_variables = []
+        service.changes = []
+        session.add(service)
+
+        template = _PreviewEnvTemplate(
+            project_id=project.id,
+            slug="default",
+            base_environment_id=prod.id,
+            auto_teardown=True,
+            is_default=True,
+        )
+        session.add(template)
+        await session.commit()
+
+        body, sig = _signed(_pr_payload("opened", 7))
+        opened = await auth_client.post(
+            WEBHOOK, content=body, headers=_webhook_headers("pull_request", sig)
+        )
+        assert opened.status_code == 200
+
+        previews = (
+            (
+                await session.execute(
+                    _select(_Environment).where(
+                        _Environment.project_id == project.id,
+                        _Environment.is_preview.is_(True),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(previews) == 1
+        assert previews[0].name == "preview-7"
+        assert previews[0].preview_metadata.pr_number == 7
+        assert previews[0].preview_metadata.branch_name == "feature/x"
+
+        body2, sig2 = _signed(_pr_payload("closed", 7))
+        closed = await auth_client.post(
+            WEBHOOK, content=body2, headers=_webhook_headers("pull_request", sig2)
+        )
+        assert closed.status_code == 200
+
+        previews_after = (
+            (
+                await session.execute(
+                    _select(_Environment).where(_Environment.is_preview.is_(True))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(previews_after) == 0
