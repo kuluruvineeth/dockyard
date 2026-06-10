@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json as _json
 
 import jwt
 from cryptography.hazmat.primitives import serialization
@@ -161,4 +162,104 @@ class TestSetupGithubApp:
 
     async def test_git_app_details_not_found(self, auth_client):
         response = await auth_client.get(f"{LIST}git_con_nope/")
+        assert response.status_code == 404
+
+
+WEBHOOK = "/api/connectors/github/webhook/"
+
+
+def _signed(payload: dict, secret: str = "webhook-secret"):
+    body = _json.dumps(payload).encode("utf-8")
+    sig = "sha256=" + hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+    return body, sig
+
+
+def _webhook_headers(event: str, sig: str) -> dict:
+    return {
+        "x-github-event": event,
+        "x-hub-signature-256": sig,
+        "content-type": "application/json",
+    }
+
+
+async def _create_app(auth_client, monkeypatch):
+    _patch_manifest(monkeypatch)
+    await auth_client.post(SETUP, json={"code": "abc"})
+
+
+class TestGithubWebhook:
+    async def test_installation_adds_repositories(self, auth_client, monkeypatch):
+        await _create_app(auth_client, monkeypatch)
+        payload = {
+            "installation": {"app_id": 12345},
+            "repositories": [
+                {"full_name": "octocat/Hello-World", "private": False},
+                {"full_name": "octocat/Secret", "private": True},
+            ],
+        }
+        body, sig = _signed(payload)
+        response = await auth_client.post(
+            WEBHOOK, content=body, headers=_webhook_headers("installation", sig)
+        )
+        assert response.status_code == 200
+        repos = (await auth_client.get(LIST)).json()[0]["github"]["repositories"]
+        urls = {r["url"] for r in repos}
+        assert urls == {
+            "https://github.com/octocat/Hello-World",
+            "https://github.com/octocat/Secret",
+        }
+
+    async def test_installation_repositories_add_and_remove(
+        self, auth_client, monkeypatch
+    ):
+        await _create_app(auth_client, monkeypatch)
+        body, sig = _signed(
+            {
+                "installation": {"app_id": 12345},
+                "repositories": [{"full_name": "octocat/a", "private": False}],
+            }
+        )
+        await auth_client.post(
+            WEBHOOK, content=body, headers=_webhook_headers("installation", sig)
+        )
+        body, sig = _signed(
+            {
+                "installation": {"app_id": 12345},
+                "repositories_added": [{"full_name": "octocat/b", "private": True}],
+                "repositories_removed": [{"full_name": "octocat/a", "private": False}],
+            }
+        )
+        response = await auth_client.post(
+            WEBHOOK,
+            content=body,
+            headers=_webhook_headers("installation_repositories", sig),
+        )
+        assert response.status_code == 200
+        repos = (await auth_client.get(LIST)).json()[0]["github"]["repositories"]
+        urls = {r["url"] for r in repos}
+        assert urls == {"https://github.com/octocat/b"}
+
+    async def test_ping_verifies_signature(self, auth_client, monkeypatch):
+        await _create_app(auth_client, monkeypatch)
+        body, sig = _signed({"hook": {"app_id": 12345}})
+        response = await auth_client.post(
+            WEBHOOK, content=body, headers=_webhook_headers("ping", sig)
+        )
+        assert response.status_code == 200
+
+    async def test_invalid_signature_rejected(self, auth_client, monkeypatch):
+        await _create_app(auth_client, monkeypatch)
+        body, _ = _signed({"hook": {"app_id": 12345}})
+        response = await auth_client.post(
+            WEBHOOK,
+            content=body,
+            headers=_webhook_headers("ping", "sha256=deadbeef"),
+        )
+        assert response.status_code == 400
+
+    async def test_unregistered_app_404(self, auth_client):
+        body, sig = _signed({"hook": {"app_id": 99999}})
+        response = await auth_client.post(
+            WEBHOOK, content=body, headers=_webhook_headers("ping", sig)
+        )
         assert response.status_code == 404

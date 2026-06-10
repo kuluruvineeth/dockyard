@@ -185,6 +185,10 @@ export interface paths {
     /** Git App Details */
     get: operations["git_app_details_api_connectors_git_apps__git_app_id___get"];
   };
+  "/api/connectors/github/webhook/": {
+    /** Github Webhook */
+    post: operations["github_webhook_api_connectors_github_webhook__post"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -372,6 +376,21 @@ export interface components {
       installation_id: number | null;
       /** Is Installed */
       is_installed: boolean;
+      /** Repositories */
+      repositories: components["schemas"]["GitRepositorySchema"][];
+    };
+    /** GitRepositorySchema */
+    GitRepositorySchema: {
+      /** Id */
+      id: string;
+      /** Owner */
+      owner: string;
+      /** Repo */
+      repo: string;
+      /** Url */
+      url: string;
+      /** Private */
+      private: boolean;
     };
     /** GitServiceCreateRequest */
     GitServiceCreateRequest: {
@@ -2126,6 +2145,21 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["ErrorResponse"];
         };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Github Webhook */
+  github_webhook_api_connectors_github_webhook__post: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: never;
       };
       /** @description Error */
       default: {

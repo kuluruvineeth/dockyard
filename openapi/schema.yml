@@ -1569,6 +1569,18 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/connectors/github/webhook/:
+    post:
+      summary: Github Webhook
+      operationId: github_webhook_api_connectors_github_webhook__post
+      responses:
+        '200':
+          description: Successful Response
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
 components:
   schemas:
     AuthedResponse:
@@ -1934,6 +1946,11 @@ components:
         is_installed:
           type: boolean
           title: Is Installed
+        repositories:
+          items:
+            $ref: '#/components/schemas/GitRepositorySchema'
+          type: array
+          title: Repositories
       type: object
       required:
       - id
@@ -1942,7 +1959,33 @@ components:
       - app_id
       - installation_id
       - is_installed
+      - repositories
       title: GitHubAppSchema
+    GitRepositorySchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        owner:
+          type: string
+          title: Owner
+        repo:
+          type: string
+          title: Repo
+        url:
+          type: string
+          title: Url
+        private:
+          type: boolean
+          title: Private
+      type: object
+      required:
+      - id
+      - owner
+      - repo
+      - url
+      - private
+      title: GitRepositorySchema
     GitServiceCreateRequest:
       properties:
         slug:

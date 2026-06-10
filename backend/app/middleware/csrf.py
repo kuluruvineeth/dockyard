@@ -7,6 +7,8 @@ from starlette.responses import JSONResponse
 from app.config import settings
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
+# webhook endpoints are authenticated by provider signatures, not CSRF tokens
+CSRF_EXEMPT_PREFIXES = ("/api/connectors/github/webhook",)
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):
@@ -14,7 +16,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if settings.testing:
             return await call_next(request)
 
-        if request.method not in SAFE_METHODS:
+        exempt = any(request.url.path.startswith(p) for p in CSRF_EXEMPT_PREFIXES)
+        if request.method not in SAFE_METHODS and not exempt:
             cookie_token = request.cookies.get("csrftoken")
             header_token = request.headers.get("X-CSRFToken")
             if not cookie_token or cookie_token != header_token:
