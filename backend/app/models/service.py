@@ -1,6 +1,7 @@
 import enum
 
 from sqlalchemy import (
+    Boolean,
     Column,
     ForeignKey,
     String,
@@ -125,6 +126,9 @@ class Service(Base, TimestampedModel):
     )
     branch_name: Mapped[str | None] = mapped_column(String, nullable=True)
     commit_sha: Mapped[str | None] = mapped_column(String, nullable=True)
+    auto_deploy_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="1"
+    )
     builder: Mapped[str | None] = mapped_column(String, nullable=True)
     dockerfile_builder_options: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     static_dir_builder_options: Mapped[dict | None] = mapped_column(JSON, nullable=True)

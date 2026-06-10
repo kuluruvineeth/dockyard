@@ -1,12 +1,20 @@
 import hashlib
 import hmac
 import json as _json
+import secrets as _secrets
 
 import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from sqlalchemy import select as _select
 
+from app.models import Deployment as _Deployment
+from app.models import Environment as _Environment
 from app.models import GitHubApp
+from app.models import Project as _Project
+from app.models import Service as _Service
+from app.models import ServiceType as _ServiceType
+from app.models.base import generate_id as _generate_id
 
 
 def _rsa_keypair() -> tuple[str, str]:
@@ -263,3 +271,106 @@ class TestGithubWebhook:
             WEBHOOK, content=body, headers=_webhook_headers("ping", sig)
         )
         assert response.status_code == 404
+
+
+async def _make_linked_git_service(auth_client, session, git_app_id):
+    await auth_client.post("/api/projects/", json={"slug": "proj"})
+    project = (
+        await session.execute(_select(_Project).where(_Project.slug == "proj"))
+    ).scalar_one()
+    env = (
+        await session.execute(
+            _select(_Environment).where(_Environment.project_id == project.id)
+        )
+    ).scalar_one()
+    service = _Service(
+        id=_generate_id("srv_git_"),
+        slug="webapp",
+        project_id=project.id,
+        environment_id=env.id,
+        type=_ServiceType.GIT_REPOSITORY.value,
+        git_app_id=git_app_id,
+        repository_url="https://github.com/octocat/repo.git",
+        branch_name="main",
+        auto_deploy_enabled=True,
+        deploy_token=_secrets.token_hex(16),
+    )
+    service.network_alias = _Service.generate_network_alias(service)
+    service.urls = []
+    service.ports = []
+    service.configs = []
+    service.volumes = []
+    service.env_variables = []
+    service.changes = []
+    session.add(service)
+    await session.commit()
+    return service
+
+
+def _push_payload(ref: str) -> dict:
+    return {
+        "ref": ref,
+        "installation": {"id": 999},
+        "repository": {"full_name": "octocat/repo"},
+        "head_commit": {
+            "id": "abc123sha",
+            "message": "new commit",
+            "author": {"name": "Octo Cat"},
+        },
+    }
+
+
+class TestPushAutoDeploy:
+    async def test_push_triggers_auto_deploy(self, auth_client, session, monkeypatch):
+        _patch_manifest(monkeypatch)
+        await auth_client.post(SETUP, json={"code": "abc"})
+        await auth_client.post(
+            SETUP, json={"state": "install:12345", "installation_id": 999}
+        )
+        git_app_id = (await auth_client.get(LIST)).json()[0]["id"]
+        service = await _make_linked_git_service(auth_client, session, git_app_id)
+
+        body, sig = _signed(_push_payload("refs/heads/main"))
+        response = await auth_client.post(
+            WEBHOOK, content=body, headers=_webhook_headers("push", sig)
+        )
+        assert response.status_code == 200
+
+        deps = (
+            (
+                await session.execute(
+                    _select(_Deployment).where(_Deployment.service_id == service.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(deps) == 1
+        assert deps[0].trigger_method == "AUTO"
+        assert deps[0].commit_sha == "abc123sha"
+        assert deps[0].commit_author_name == "Octo Cat"
+
+    async def test_tag_push_is_ignored(self, auth_client, session, monkeypatch):
+        _patch_manifest(monkeypatch)
+        await auth_client.post(SETUP, json={"code": "abc"})
+        await auth_client.post(
+            SETUP, json={"state": "install:12345", "installation_id": 999}
+        )
+        git_app_id = (await auth_client.get(LIST)).json()[0]["id"]
+        service = await _make_linked_git_service(auth_client, session, git_app_id)
+
+        body, sig = _signed(_push_payload("refs/tags/v1.0.0"))
+        response = await auth_client.post(
+            WEBHOOK, content=body, headers=_webhook_headers("push", sig)
+        )
+        assert response.status_code == 200
+        deps = (
+            (
+                await session.execute(
+                    _select(_Deployment).where(_Deployment.service_id == service.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(deps) == 0

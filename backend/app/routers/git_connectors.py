@@ -5,11 +5,85 @@ from app import git_connectors_helpers
 from app.config import PRODUCTION_ENV, settings
 from app.dependencies import CurrentUser, DBSession
 from app.errors import BadRequest, NotFound
-from app.models import GitApp, GitHubApp, GitRepository
+from app.models import (
+    Deployment,
+    Environment,
+    GitApp,
+    GitHubApp,
+    GitRepository,
+    Service,
+)
 from app.models.base import generate_id
 from app.schemas.git_connectors import GitAppSchema, SetupGithubAppRequest
+from app.services.deploy import build_service_snapshot
+from app.temporal.client import schedule_deploy_docker_service
 
 router = APIRouter()
+
+
+async def _auto_deploy_service(db, service: Service, head_commit: dict | None):
+    environment = (
+        await db.execute(
+            select(Environment).where(Environment.id == service.environment_id)
+        )
+    ).scalar_one()
+    commit = head_commit or {}
+    deployment = Deployment(
+        id=generate_id("dpl_git_"),
+        service_id=service.id,
+        slot=Deployment.get_next_deployment_slot(service.latest_production_deployment),
+        commit_message=commit.get("message", "auto deploy"),
+        commit_sha=commit.get("id"),
+        commit_author_name=(commit.get("author") or {}).get("name"),
+        trigger_method="AUTO",
+    )
+    service.deployments.append(deployment)
+    service.apply_pending_changes(deployment)
+    deployment.service_snapshot = build_service_snapshot(service)
+    await db.commit()
+    await schedule_deploy_docker_service(db, service, environment, deployment)
+
+
+async def _handle_push(db, data: dict, body: bytes, signature: str) -> Response:
+    installation_id = data["installation"]["id"]
+    git_app = (
+        await db.execute(
+            select(GitApp)
+            .join(GitHubApp, GitApp.github_app_id == GitHubApp.id)
+            .where(GitHubApp.installation_id == installation_id)
+        )
+    ).scalar_one_or_none()
+    if git_app is None:
+        raise NotFound(
+            "This github app has not been registered in this Dockyard instance"
+        )
+    if not git_app.github.verify_signature(body, signature):
+        raise BadRequest("Invalid webhook signature")
+
+    ref = data.get("ref", "")
+    # only branch pushes trigger deploys (ignore tags etc.)
+    if ref.startswith("refs/heads/"):
+        branch_name = ref.split("/")[-1]
+        repository_url = f"https://github.com/{data['repository']['full_name']}.git"
+        services = (
+            (
+                await db.execute(
+                    select(Service).where(
+                        Service.git_app_id == git_app.id,
+                        Service.repository_url == repository_url,
+                        Service.branch_name == branch_name,
+                        Service.auto_deploy_enabled.is_(True),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        head_commit = data.get("head_commit")
+        for service in services:
+            await _auto_deploy_service(db, service, head_commit)
+
+    return Response(status_code=200)
 
 
 def _map_repository(repository: dict) -> dict:
@@ -136,6 +210,9 @@ async def github_webhook(request: Request, db: DBSession):
     data = await request.json()
     event = request.headers.get("x-github-event")
     signature = request.headers.get("x-hub-signature-256") or ""
+
+    if event == "push":
+        return await _handle_push(db, data, body, signature)
 
     if event == "ping":
         gh = await _get_app_or_404(db, data["hook"]["app_id"])
