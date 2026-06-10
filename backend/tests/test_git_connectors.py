@@ -96,3 +96,69 @@ class TestAuthenticatedRepositoryUrl:
             url
             == "https://x-access-token:ghs_token123@github.com/octocat/Hello-World.git"
         )
+
+
+FAKE_MANIFEST = {
+    "id": 12345,
+    "client_id": "Iv1.abc",
+    "client_secret": "client-secret",
+    "webhook_secret": "webhook-secret",
+    "html_url": "https://github.com/apps/my-app",
+    "pem": "-----BEGIN RSA PRIVATE KEY-----\nMIIPLACEHOLDER\n-----END RSA PRIVATE KEY-----\n",
+    "name": "my-app",
+}
+
+SETUP = "/api/connectors/github/setup/"
+LIST = "/api/connectors/git-apps/"
+
+
+def _patch_manifest(monkeypatch):
+    monkeypatch.setattr(
+        "app.git_connectors_helpers.fetch_github_app_manifest",
+        lambda code: FAKE_MANIFEST,
+    )
+
+
+class TestSetupGithubApp:
+    async def test_conversion_creates_github_and_git_app(
+        self, auth_client, monkeypatch
+    ):
+        _patch_manifest(monkeypatch)
+        response = await auth_client.post(SETUP, json={"code": "abc123"})
+        assert response.status_code == 303
+        assert "/settings/git-apps" in response.headers["location"]
+
+        listing = await auth_client.get(LIST)
+        assert len(listing.json()) == 1
+        gh = listing.json()[0]["github"]
+        assert gh["app_id"] == 12345
+        assert gh["name"] == "my-app"
+        assert gh["is_installed"] is False
+
+    async def test_conversion_is_idempotent_per_app_id(self, auth_client, monkeypatch):
+        _patch_manifest(monkeypatch)
+        await auth_client.post(SETUP, json={"code": "abc"})
+        await auth_client.post(SETUP, json={"code": "def"})
+        listing = await auth_client.get(LIST)
+        assert len(listing.json()) == 1
+
+    async def test_install_sets_installation_id(self, auth_client, monkeypatch):
+        _patch_manifest(monkeypatch)
+        await auth_client.post(SETUP, json={"code": "abc123"})
+        response = await auth_client.post(
+            SETUP, json={"state": "install:12345", "installation_id": 999}
+        )
+        assert response.status_code == 303
+        gh = (await auth_client.get(LIST)).json()[0]["github"]
+        assert gh["installation_id"] == 999
+        assert gh["is_installed"] is True
+
+    async def test_install_nonexistent_app_404(self, auth_client):
+        response = await auth_client.post(
+            SETUP, json={"state": "install:99999", "installation_id": 1}
+        )
+        assert response.status_code == 404
+
+    async def test_git_app_details_not_found(self, auth_client):
+        response = await auth_client.get(f"{LIST}git_con_nope/")
+        assert response.status_code == 404

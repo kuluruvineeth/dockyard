@@ -173,6 +173,18 @@ export interface paths {
     /** Archive Compose Stack */
     delete: operations["archive_compose_stack_api_projects__project_slug___env_slug__compose_stack__slug___delete"];
   };
+  "/api/connectors/github/setup/": {
+    /** Setup Github App */
+    post: operations["setup_github_app_api_connectors_github_setup__post"];
+  };
+  "/api/connectors/git-apps/": {
+    /** List Git Apps */
+    get: operations["list_git_apps_api_connectors_git_apps__get"];
+  };
+  "/api/connectors/git-apps/{git_app_id}/": {
+    /** Git App Details */
+    get: operations["git_app_details_api_connectors_git_apps__git_app_id___get"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -334,6 +346,32 @@ export interface components {
       key: string;
       /** Value */
       value: string;
+    };
+    /** GitAppSchema */
+    GitAppSchema: {
+      /** Id */
+      id: string;
+      github: components["schemas"]["GitHubAppSchema"] | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /** GitHubAppSchema */
+    GitHubAppSchema: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** App Url */
+      app_url: string;
+      /** App Id */
+      app_id: number;
+      /** Installation Id */
+      installation_id: number | null;
+      /** Is Installed */
+      is_installed: boolean;
     };
     /** GitServiceCreateRequest */
     GitServiceCreateRequest: {
@@ -613,6 +651,15 @@ export interface components {
       image_version: string;
       /** Commit Sha */
       commit_sha: string | null;
+    };
+    /** SetupGithubAppRequest */
+    SetupGithubAppRequest: {
+      /** Code */
+      code?: string | null;
+      /** State */
+      state?: string | null;
+      /** Installation Id */
+      installation_id?: number | null;
     };
     /** SharedEnvVariableRequest */
     SharedEnvVariableRequest: {
@@ -2002,6 +2049,77 @@ export interface operations {
       /** @description Successful Response */
       204: {
         content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Setup Github App */
+  setup_github_app_api_connectors_github_setup__post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetupGithubAppRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      303: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** List Git Apps */
+  list_git_apps_api_connectors_git_apps__get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["GitAppSchema"][];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Git App Details */
+  git_app_details_api_connectors_git_apps__git_app_id___get: {
+    parameters: {
+      path: {
+        git_app_id: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["GitAppSchema"];
+        };
       };
       /** @description Validation Error */
       422: {

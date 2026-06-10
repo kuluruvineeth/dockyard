@@ -1499,6 +1499,76 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/connectors/github/setup/:
+    post:
+      summary: Setup Github App
+      operationId: setup_github_app_api_connectors_github_setup__post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupGithubAppRequest'
+        required: true
+      responses:
+        '303':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+  /api/connectors/git-apps/:
+    get:
+      summary: List Git Apps
+      operationId: list_git_apps_api_connectors_git_apps__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/GitAppSchema'
+                type: array
+                title: Response List Git Apps Api Connectors Git Apps  Get
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+  /api/connectors/git-apps/{git_app_id}/:
+    get:
+      summary: Git App Details
+      operationId: git_app_details_api_connectors_git_apps__git_app_id___get
+      parameters:
+      - name: git_app_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Git App Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitAppSchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
 components:
   schemas:
     AuthedResponse:
@@ -1823,6 +1893,56 @@ components:
       - key
       - value
       title: EnvVariableSchema
+    GitAppSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        github:
+          anyOf:
+          - $ref: '#/components/schemas/GitHubAppSchema'
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - github
+      - created_at
+      title: GitAppSchema
+    GitHubAppSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        app_url:
+          type: string
+          title: App Url
+        app_id:
+          type: integer
+          title: App Id
+        installation_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Installation Id
+        is_installed:
+          type: boolean
+          title: Is Installed
+      type: object
+      required:
+      - id
+      - name
+      - app_url
+      - app_id
+      - installation_id
+      - is_installed
+      title: GitHubAppSchema
     GitServiceCreateRequest:
       properties:
         slug:
@@ -2341,6 +2461,25 @@ components:
       - image_version
       - commit_sha
       title: SettingsResponse
+    SetupGithubAppRequest:
+      properties:
+        code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Code
+        state:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State
+        installation_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Installation Id
+      type: object
+      title: SetupGithubAppRequest
     SharedEnvVariableRequest:
       properties:
         key:

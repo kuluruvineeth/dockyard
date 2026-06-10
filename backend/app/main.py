@@ -11,6 +11,7 @@ from app.routers import (
     compose,
     docker,
     docker_services,
+    git_connectors,
     git_services,
     ping,
     projects,
@@ -58,6 +59,7 @@ def create_app() -> FastAPI:
     app.include_router(git_services.router)
     app.include_router(registry.router)
     app.include_router(compose.router)
+    app.include_router(git_connectors.router)
     return app
 
 

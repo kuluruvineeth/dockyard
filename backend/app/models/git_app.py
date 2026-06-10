@@ -117,3 +117,19 @@ class GitHubApp(Base, TimestampedModel):
             and bool(self.webhook_secret)
             and bool(self.private_key)
         )
+
+
+class GitApp(Base, TimestampedModel):
+    __tablename__ = "git_app"
+
+    id: Mapped[str] = mapped_column(
+        String, primary_key=True, default=lambda: generate_id("git_con_", 14)
+    )
+    # GitLab link arrives with the GitLab phase
+    github_app_id: Mapped[str | None] = mapped_column(
+        ForeignKey("github_app.id", ondelete="CASCADE"),
+        nullable=True,
+        unique=True,
+    )
+
+    github = relationship("GitHubApp", lazy="selectin")

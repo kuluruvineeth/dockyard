@@ -10,7 +10,7 @@ from app.models.deployment import (
 from app.models.deployment_change import ChangeField, ChangeType, DeploymentChange
 from app.models.env_variable import EnvVariable
 from app.models.environment import Environment
-from app.models.git_app import GitHubApp, GitRepository
+from app.models.git_app import GitApp, GitHubApp, GitRepository
 from app.models.healthcheck import HealthCheck, HealthCheckType
 from app.models.port import PortConfiguration
 from app.models.project import Project
@@ -44,6 +44,7 @@ __all__ = [
     "RegistryType",
     "ComposeStack",
     "ServiceMetrics",
+    "GitApp",
     "GitHubApp",
     "GitRepository",
     "Config",
