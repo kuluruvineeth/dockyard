@@ -201,6 +201,16 @@ export interface paths {
     /** Gitlab Webhook */
     post: operations["gitlab_webhook_api_connectors_gitlab_webhook__post"];
   };
+  "/api/ssh-keys/": {
+    /** List Ssh Keys */
+    get: operations["list_ssh_keys_api_ssh_keys__get"];
+    /** Create Ssh Key */
+    post: operations["create_ssh_key_api_ssh_keys__post"];
+  };
+  "/api/ssh-keys/{slug}/": {
+    /** Delete Ssh Key */
+    delete: operations["delete_ssh_key_api_ssh_keys__slug___delete"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -588,6 +598,31 @@ export interface components {
       no_of_cpus: number;
       /** Max Memory In Bytes */
       max_memory_in_bytes: number;
+    };
+    /** SSHKeyCreateRequest */
+    SSHKeyCreateRequest: {
+      /** Slug */
+      slug: string;
+      /** User */
+      user: string;
+    };
+    /** SSHKeySchema */
+    SSHKeySchema: {
+      /** Id */
+      id: string;
+      /** Slug */
+      slug: string;
+      /** User */
+      user: string;
+      /** Public Key */
+      public_key: string;
+      /** Fingerprint */
+      fingerprint: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
     };
     /** ServiceCardSchema */
     ServiceCardSchema: {
@@ -2295,6 +2330,77 @@ export interface operations {
       /** @description Successful Response */
       200: {
         content: never;
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** List Ssh Keys */
+  list_ssh_keys_api_ssh_keys__get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["SSHKeySchema"][];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Create Ssh Key */
+  create_ssh_key_api_ssh_keys__post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SSHKeyCreateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        content: {
+          "application/json": components["schemas"]["SSHKeySchema"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Delete Ssh Key */
+  delete_ssh_key_api_ssh_keys__slug___delete: {
+    parameters: {
+      path: {
+        slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
       };
       /** @description Error */
       default: {

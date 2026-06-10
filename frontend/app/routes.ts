@@ -14,6 +14,7 @@ export default [
     route("create-project", "./routes/projects/create-project.tsx"),
     route("settings", "./routes/settings/registry-credentials.tsx"),
     route("settings/git-apps", "./routes/settings/git-apps.tsx"),
+    route("settings/ssh-keys", "./routes/settings/ssh-keys.tsx"),
     route(
       "project/:projectSlug/:envSlug",
       "./routes/environments/environment-service-list.tsx"

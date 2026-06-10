@@ -7,7 +7,10 @@ import { cn } from "~/lib/utils";
 const GROUPS = [
   {
     label: "Account",
-    links: [{ to: "/settings", label: "Registry credentials", end: true }]
+    links: [
+      { to: "/settings", label: "Registry credentials", end: true },
+      { to: "/settings/ssh-keys", label: "SSH keys", end: false }
+    ]
   },
   {
     label: "Integrations",

@@ -133,6 +133,16 @@ export const gitAppsQueries = {
   })
 };
 
+export const sshKeysQueries = {
+  list: queryOptions({
+    queryKey: ["SSH_KEYS"] as const,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiClient.GET("/api/ssh-keys/", { signal });
+      return data ?? [];
+    }
+  })
+};
+
 // A deployment that is still moving. While any of these is the newest one,
 // the page polls, because the whole point of watching a deploy is watching it
 // change — otherwise the UI sits on "Queued" for the length of a build.

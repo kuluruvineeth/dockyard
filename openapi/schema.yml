@@ -1662,6 +1662,75 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/ssh-keys/:
+    get:
+      summary: List Ssh Keys
+      operationId: list_ssh_keys_api_ssh_keys__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SSHKeySchema'
+                type: array
+                title: Response List Ssh Keys Api Ssh Keys  Get
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+    post:
+      summary: Create Ssh Key
+      operationId: create_ssh_key_api_ssh_keys__post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SSHKeyCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SSHKeySchema'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+  /api/ssh-keys/{slug}/:
+    delete:
+      summary: Delete Ssh Key
+      operationId: delete_ssh_key_api_ssh_keys__slug___delete
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
 components:
   schemas:
     AuthedResponse:
@@ -2391,6 +2460,56 @@ components:
       - no_of_cpus
       - max_memory_in_bytes
       title: ResourceLimitResponse
+    SSHKeyCreateRequest:
+      properties:
+        slug:
+          type: string
+          maxLength: 255
+          minLength: 1
+          pattern: ^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$
+          title: Slug
+        user:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: User
+      type: object
+      required:
+      - slug
+      - user
+      title: SSHKeyCreateRequest
+    SSHKeySchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        slug:
+          type: string
+          title: Slug
+        user:
+          type: string
+          title: User
+        public_key:
+          type: string
+          title: Public Key
+        fingerprint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fingerprint
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - slug
+      - user
+      - public_key
+      - fingerprint
+      - created_at
+      title: SSHKeySchema
     ServiceCardSchema:
       properties:
         id:

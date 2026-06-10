@@ -22,6 +22,7 @@ from app.models.service import Builder, Service, ServiceType
 from app.models.service_metrics import ServiceMetrics
 from app.models.shared_env_variable import SharedEnvVariable
 from app.models.shared_volume import SharedVolume
+from app.models.ssh_key import SSHKey
 from app.models.url import URL
 from app.models.user import User
 from app.models.volume import Volume, VolumeMode
@@ -44,6 +45,7 @@ __all__ = [
     "RegistryType",
     "ComposeStack",
     "ServiceMetrics",
+    "SSHKey",
     "GitApp",
     "GitHubApp",
     "GitlabApp",
