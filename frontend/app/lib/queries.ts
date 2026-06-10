@@ -121,6 +121,18 @@ export const registryQueries = {
   })
 };
 
+export const gitAppsQueries = {
+  list: queryOptions({
+    queryKey: ["GIT_APPS"] as const,
+    queryFn: async ({ signal }) => {
+      const { data } = await apiClient.GET("/api/connectors/git-apps/", {
+        signal
+      });
+      return data ?? [];
+    }
+  })
+};
+
 // A deployment that is still moving. While any of these is the newest one,
 // the page polls, because the whole point of watching a deploy is watching it
 // change — otherwise the UI sits on "Queued" for the length of a build.

@@ -13,6 +13,7 @@ export default [
     index("./routes/home.tsx"),
     route("create-project", "./routes/projects/create-project.tsx"),
     route("settings", "./routes/settings/registry-credentials.tsx"),
+    route("settings/git-apps", "./routes/settings/git-apps.tsx"),
     route(
       "project/:projectSlug/:envSlug",
       "./routes/environments/environment-service-list.tsx"
