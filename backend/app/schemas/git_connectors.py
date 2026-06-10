@@ -42,9 +42,39 @@ class GitHubAppSchema(BaseModel):
         )
 
 
+class GitlabAppSchema(BaseModel):
+    id: str
+    name: str
+    gitlab_url: str
+    app_id: str
+    is_installed: bool
+    repositories: list[GitRepositorySchema]
+
+    @classmethod
+    def from_gitlab_app(cls, gl) -> "GitlabAppSchema":
+        return cls(
+            id=gl.id,
+            name=gl.name,
+            gitlab_url=gl.gitlab_url,
+            app_id=gl.app_id,
+            is_installed=gl.is_installed,
+            repositories=[
+                GitRepositorySchema(
+                    id=r.id,
+                    owner=r.owner,
+                    repo=r.repo,
+                    url=r.url,
+                    private=r.private,
+                )
+                for r in gl.repositories
+            ],
+        )
+
+
 class GitAppSchema(BaseModel):
     id: str
     github: GitHubAppSchema | None
+    gitlab: GitlabAppSchema | None
     created_at: datetime
 
     @classmethod
@@ -56,6 +86,11 @@ class GitAppSchema(BaseModel):
                 if git_app.github
                 else None
             ),
+            gitlab=(
+                GitlabAppSchema.from_gitlab_app(git_app.gitlab)
+                if git_app.gitlab
+                else None
+            ),
             created_at=git_app.created_at,
         )
 
@@ -64,3 +99,12 @@ class SetupGithubAppRequest(BaseModel):
     code: str | None = None
     state: str | None = None
     installation_id: int | None = None
+
+
+class SetupGitlabAppRequest(BaseModel):
+    name: str
+    gitlab_url: str = "https://gitlab.com"
+    redirect_uri: str
+    app_id: str
+    secret: str
+    code: str

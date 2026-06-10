@@ -10,11 +10,16 @@ from app.models import (
     Environment,
     GitApp,
     GitHubApp,
+    GitlabApp,
     GitRepository,
     Service,
 )
 from app.models.base import generate_id
-from app.schemas.git_connectors import GitAppSchema, SetupGithubAppRequest
+from app.schemas.git_connectors import (
+    GitAppSchema,
+    SetupGithubAppRequest,
+    SetupGitlabAppRequest,
+)
 from app.services.deploy import build_service_snapshot
 from app.temporal.client import schedule_deploy_docker_service
 
@@ -170,6 +175,36 @@ async def setup_github_app(
             )
             db.add(git_app)
         await db.commit()
+
+    base_url = ""
+    if settings.environment != PRODUCTION_ENV:
+        base_url = "http://localhost:5173"
+    return Response(
+        status_code=303, headers={"Location": f"{base_url}/settings/git-apps"}
+    )
+
+
+@router.post("/api/connectors/gitlab/setup/", status_code=303, response_class=Response)
+async def setup_gitlab_app(
+    body: SetupGitlabAppRequest, user: CurrentUser, db: DBSession
+):
+    tokens = git_connectors_helpers.exchange_gitlab_oauth_code(
+        body.gitlab_url, body.app_id, body.secret, body.redirect_uri, body.code
+    )
+    gitlab_app = GitlabApp(
+        id=generate_id("gl_app_", 14),
+        name=body.name,
+        gitlab_url=body.gitlab_url,
+        redirect_uri=body.redirect_uri,
+        app_id=body.app_id,
+        secret=body.secret,
+        refresh_token=tokens["refresh_token"],
+    )
+    db.add(gitlab_app)
+    await db.flush()
+    git_app = GitApp(id=generate_id("git_con_", 14), gitlab_app_id=gitlab_app.id)
+    db.add(git_app)
+    await db.commit()
 
     base_url = ""
     if settings.environment != PRODUCTION_ENV:

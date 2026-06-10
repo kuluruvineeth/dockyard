@@ -119,17 +119,65 @@ class GitHubApp(Base, TimestampedModel):
         )
 
 
+gitlab_app_repositories = Table(
+    "gitlab_app_repositories",
+    Base.metadata,
+    Column(
+        "gitlab_app_id",
+        ForeignKey("gitlab_app.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "repository_id",
+        ForeignKey("git_repository.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
+
+
+class GitlabApp(Base, TimestampedModel):
+    __tablename__ = "gitlab_app"
+
+    id: Mapped[str] = mapped_column(
+        String, primary_key=True, default=lambda: generate_id("gl_app_", 14)
+    )
+    name: Mapped[str] = mapped_column(String(255))
+    gitlab_url: Mapped[str] = mapped_column(String, default="https://gitlab.com")
+    redirect_uri: Mapped[str] = mapped_column(String)
+    app_id: Mapped[str] = mapped_column(String(255))
+    secret: Mapped[str] = mapped_column(Text)
+    refresh_token: Mapped[str] = mapped_column(Text)
+
+    repositories = relationship(
+        "GitRepository",
+        secondary=gitlab_app_repositories,
+        lazy="selectin",
+    )
+
+    @property
+    def is_installed(self) -> bool:
+        return bool(self.refresh_token)
+
+    def get_authenticated_repository_url(self, repo_url: str, access_token: str) -> str:
+        return f"https://oauth2:{access_token}@{repo_url.replace('https://', '')}"
+
+
 class GitApp(Base, TimestampedModel):
     __tablename__ = "git_app"
 
     id: Mapped[str] = mapped_column(
         String, primary_key=True, default=lambda: generate_id("git_con_", 14)
     )
-    # GitLab link arrives with the GitLab phase
     github_app_id: Mapped[str | None] = mapped_column(
         ForeignKey("github_app.id", ondelete="CASCADE"),
         nullable=True,
         unique=True,
     )
+    gitlab_app_id: Mapped[str | None] = mapped_column(
+        ForeignKey("gitlab_app.id", ondelete="CASCADE"),
+        nullable=True,
+        unique=True,
+    )
 
     github = relationship("GitHubApp", lazy="selectin")
+    gitlab = relationship("GitlabApp", lazy="selectin")

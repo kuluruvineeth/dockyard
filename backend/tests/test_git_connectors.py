@@ -11,6 +11,7 @@ from sqlalchemy import select as _select
 from app.models import Deployment as _Deployment
 from app.models import Environment as _Environment
 from app.models import GitHubApp
+from app.models import GitlabApp as _GitlabApp
 from app.models import Project as _Project
 from app.models import Service as _Service
 from app.models import ServiceType as _ServiceType
@@ -374,3 +375,56 @@ class TestPushAutoDeploy:
             .all()
         )
         assert len(deps) == 0
+
+
+GITLAB_SETUP = "/api/connectors/gitlab/setup/"
+
+
+def _gitlab_app(**overrides) -> _GitlabApp:
+    defaults = dict(
+        name="my gitlab",
+        gitlab_url="https://gitlab.com",
+        redirect_uri="https://dky/cb",
+        app_id="appid",
+        secret="sec",
+        refresh_token="rt123",
+    )
+    defaults.update(overrides)
+    return _GitlabApp(**defaults)
+
+
+class TestGitlabModel:
+    def test_is_installed(self):
+        assert _gitlab_app().is_installed is True
+        assert bool(_gitlab_app(refresh_token="").is_installed) is False
+
+    def test_authenticated_url_uses_oauth2(self):
+        app = _gitlab_app()
+        url = app.get_authenticated_repository_url(
+            "https://gitlab.com/me/repo.git", "tok"
+        )
+        assert url == "https://oauth2:tok@gitlab.com/me/repo.git"
+
+
+class TestSetupGitlabApp:
+    async def test_setup_creates_gitlab_and_git_app(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            "app.git_connectors_helpers.exchange_gitlab_oauth_code",
+            lambda *a, **k: {"access_token": "at", "refresh_token": "rt-new"},
+        )
+        response = await auth_client.post(
+            GITLAB_SETUP,
+            json={
+                "name": "gl",
+                "redirect_uri": "https://dky/cb",
+                "app_id": "appid",
+                "secret": "sec",
+                "code": "code123",
+            },
+        )
+        assert response.status_code == 303
+        ga = (await auth_client.get(LIST)).json()[0]
+        assert ga["github"] is None
+        assert ga["gitlab"]["name"] == "gl"
+        assert ga["gitlab"]["app_id"] == "appid"
+        assert ga["gitlab"]["is_installed"] is True

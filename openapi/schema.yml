@@ -1522,6 +1522,29 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/connectors/gitlab/setup/:
+    post:
+      summary: Setup Gitlab App
+      operationId: setup_gitlab_app_api_connectors_gitlab_setup__post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupGitlabAppRequest'
+        required: true
+      responses:
+        '303':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/connectors/git-apps/:
     get:
       summary: List Git Apps
@@ -1914,6 +1937,10 @@ components:
           anyOf:
           - $ref: '#/components/schemas/GitHubAppSchema'
           - type: 'null'
+        gitlab:
+          anyOf:
+          - $ref: '#/components/schemas/GitlabAppSchema'
+          - type: 'null'
         created_at:
           type: string
           format: date-time
@@ -1922,6 +1949,7 @@ components:
       required:
       - id
       - github
+      - gitlab
       - created_at
       title: GitAppSchema
     GitHubAppSchema:
@@ -2016,6 +2044,37 @@ components:
       - repository_url
       - branch_name
       title: GitServiceCreateRequest
+    GitlabAppSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        gitlab_url:
+          type: string
+          title: Gitlab Url
+        app_id:
+          type: string
+          title: App Id
+        is_installed:
+          type: boolean
+          title: Is Installed
+        repositories:
+          items:
+            $ref: '#/components/schemas/GitRepositorySchema'
+          type: array
+          title: Repositories
+      type: object
+      required:
+      - id
+      - name
+      - gitlab_url
+      - app_id
+      - is_installed
+      - repositories
+      title: GitlabAppSchema
     HealthCheckSchema:
       properties:
         id:
@@ -2523,6 +2582,35 @@ components:
           title: Installation Id
       type: object
       title: SetupGithubAppRequest
+    SetupGitlabAppRequest:
+      properties:
+        name:
+          type: string
+          title: Name
+        gitlab_url:
+          type: string
+          title: Gitlab Url
+          default: https://gitlab.com
+        redirect_uri:
+          type: string
+          title: Redirect Uri
+        app_id:
+          type: string
+          title: App Id
+        secret:
+          type: string
+          title: Secret
+        code:
+          type: string
+          title: Code
+      type: object
+      required:
+      - name
+      - redirect_uri
+      - app_id
+      - secret
+      - code
+      title: SetupGitlabAppRequest
     SharedEnvVariableRequest:
       properties:
         key:

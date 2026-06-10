@@ -177,6 +177,10 @@ export interface paths {
     /** Setup Github App */
     post: operations["setup_github_app_api_connectors_github_setup__post"];
   };
+  "/api/connectors/gitlab/setup/": {
+    /** Setup Gitlab App */
+    post: operations["setup_gitlab_app_api_connectors_gitlab_setup__post"];
+  };
   "/api/connectors/git-apps/": {
     /** List Git Apps */
     get: operations["list_git_apps_api_connectors_git_apps__get"];
@@ -356,6 +360,7 @@ export interface components {
       /** Id */
       id: string;
       github: components["schemas"]["GitHubAppSchema"] | null;
+      gitlab: components["schemas"]["GitlabAppSchema"] | null;
       /**
        * Created At
        * Format: date-time
@@ -410,6 +415,21 @@ export interface components {
        * @default ./Dockerfile
        */
       dockerfile_path?: string;
+    };
+    /** GitlabAppSchema */
+    GitlabAppSchema: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Gitlab Url */
+      gitlab_url: string;
+      /** App Id */
+      app_id: string;
+      /** Is Installed */
+      is_installed: boolean;
+      /** Repositories */
+      repositories: components["schemas"]["GitRepositorySchema"][];
     };
     /** HealthCheckSchema */
     HealthCheckSchema: {
@@ -679,6 +699,24 @@ export interface components {
       state?: string | null;
       /** Installation Id */
       installation_id?: number | null;
+    };
+    /** SetupGitlabAppRequest */
+    SetupGitlabAppRequest: {
+      /** Name */
+      name: string;
+      /**
+       * Gitlab Url
+       * @default https://gitlab.com
+       */
+      gitlab_url?: string;
+      /** Redirect Uri */
+      redirect_uri: string;
+      /** App Id */
+      app_id: string;
+      /** Secret */
+      secret: string;
+      /** Code */
+      code: string;
     };
     /** SharedEnvVariableRequest */
     SharedEnvVariableRequest: {
@@ -2088,6 +2126,32 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["SetupGithubAppRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      303: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Setup Gitlab App */
+  setup_gitlab_app_api_connectors_gitlab_setup__post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetupGitlabAppRequest"];
       };
     };
     responses: {
