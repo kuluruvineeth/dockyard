@@ -18,6 +18,7 @@ from app.models import (
     Service,
     SharedEnvVariable,
     WorkspaceMembership,
+    WorkspaceRole,
 )
 from app.schemas.projects import (
     CreateEnvironmentRequest,
@@ -30,7 +31,10 @@ from app.schemas.projects import (
 )
 from app.services import networks, proxy
 from app.services.clone import clone_environment
-from app.services.workspaces import get_current_workspace
+from app.services.workspaces import (
+    get_current_workspace,
+    require_workspace_role,
+)
 from app.temporal.client import schedule_create_project_resources
 
 _logger = logging.getLogger("dockyard.projects")
@@ -116,6 +120,8 @@ async def create_project(body: ProjectCreateRequest, user: CurrentUser, db: DBSe
     slug = (body.slug or fake.slug() or "project").lower()
 
     workspace = await get_current_workspace(db, user)
+    if workspace is not None:
+        await require_workspace_role(db, user, workspace.id, WorkspaceRole.MEMBER)
     project = Project(
         owner_id=user.id,
         workspace_id=workspace.id if workspace is not None else None,

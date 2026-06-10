@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -12,13 +12,19 @@ from app.errors import (
     ResourceConflict,
     ValidationException,
 )
-from app.models import WorkspaceInvitation, WorkspaceMembership, WorkspaceRole
+from app.models import (
+    Workspace,
+    WorkspaceInvitation,
+    WorkspaceMembership,
+    WorkspaceRole,
+)
 from app.schemas.workspaces import (
     CreateInvitationRequest,
     WorkspaceInvitationSchema,
     WorkspaceMembershipSchema,
+    WorkspaceSchema,
 )
-from app.services.workspaces import get_membership
+from app.services.workspaces import get_membership, require_workspace_role
 
 router = APIRouter()
 
@@ -26,10 +32,35 @@ INVITATION_TTL = timedelta(days=7)
 
 
 async def _require_admin(db, user, workspace_id) -> WorkspaceMembership:
-    membership = await get_membership(db, user, workspace_id)
-    if membership is None or membership.role < WorkspaceRole.ADMIN.value:
-        raise PermissionDenied("You must be an admin or owner of this workspace.")
-    return membership
+    return await require_workspace_role(db, user, workspace_id, WorkspaceRole.ADMIN)
+
+
+@router.get("/api/workspaces/", response_model=list[WorkspaceSchema])
+async def list_workspaces(user: CurrentUser, db: DBSession):
+    result = await db.execute(
+        select(Workspace, WorkspaceMembership.role)
+        .join(
+            WorkspaceMembership,
+            Workspace.id == WorkspaceMembership.workspace_id,
+        )
+        .where(WorkspaceMembership.user_id == user.id)
+        .order_by(Workspace.created_at)
+    )
+    return [
+        WorkspaceSchema(id=w.id, name=w.name, slug=w.slug, role=role)
+        for w, role in result.all()
+    ]
+
+
+@router.delete("/api/workspaces/{workspace_id}/", status_code=204)
+async def delete_workspace(workspace_id: str, user: CurrentUser, db: DBSession):
+    await require_workspace_role(db, user, workspace_id, WorkspaceRole.OWNER)
+    workspace = await db.get(Workspace, workspace_id)
+    if workspace is None:
+        raise NotFound("This workspace does not exist.")
+    await db.delete(workspace)
+    await db.commit()
+    return Response(status_code=204)
 
 
 @router.post(

@@ -10,6 +10,13 @@ class CreateInvitationRequest(BaseModel):
     role: int = WorkspaceRole.MEMBER.value
 
 
+class WorkspaceSchema(BaseModel):
+    id: str
+    name: str
+    slug: str
+    role: int
+
+
 class WorkspaceInvitationSchema(BaseModel):
     id: str
     workspace_id: str

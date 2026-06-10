@@ -215,6 +215,14 @@ export interface paths {
     /** Delete Ssh Key */
     delete: operations["delete_ssh_key_api_ssh_keys__slug___delete"];
   };
+  "/api/workspaces/": {
+    /** List Workspaces */
+    get: operations["list_workspaces_api_workspaces__get"];
+  };
+  "/api/workspaces/{workspace_id}/": {
+    /** Delete Workspace */
+    delete: operations["delete_workspace_api_workspaces__workspace_id___delete"];
+  };
   "/api/workspaces/{workspace_id}/invitations/": {
     /** List Invitations */
     get: operations["list_invitations_api_workspaces__workspace_id__invitations__get"];
@@ -932,6 +940,17 @@ export interface components {
       workspace_id: string;
       /** User Id */
       user_id: number;
+      /** Role */
+      role: number;
+    };
+    /** WorkspaceSchema */
+    WorkspaceSchema: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Slug */
+      slug: string;
       /** Role */
       role: number;
     };
@@ -2476,6 +2495,49 @@ export interface operations {
     parameters: {
       path: {
         slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        content: never;
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** List Workspaces */
+  list_workspaces_api_workspaces__get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["WorkspaceSchema"][];
+        };
+      };
+      /** @description Error */
+      default: {
+        content: {
+          "application/json": components["schemas"]["ErrorResponse"];
+        };
+      };
+    };
+  };
+  /** Delete Workspace */
+  delete_workspace_api_workspaces__workspace_id___delete: {
+    parameters: {
+      path: {
+        workspace_id: string;
       };
     };
     responses: {

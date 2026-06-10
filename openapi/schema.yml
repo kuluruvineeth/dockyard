@@ -1771,6 +1771,49 @@ paths:
           content:
             application/json:
               schema: *id001
+  /api/workspaces/:
+    get:
+      summary: List Workspaces
+      operationId: list_workspaces_api_workspaces__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/WorkspaceSchema'
+                type: array
+                title: Response List Workspaces Api Workspaces  Get
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
+  /api/workspaces/{workspace_id}/:
+    delete:
+      summary: Delete Workspace
+      operationId: delete_workspace_api_workspaces__workspace_id___delete
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema: *id001
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: *id001
   /api/workspaces/{workspace_id}/invitations/:
     post:
       summary: Create Invitation
@@ -3219,6 +3262,27 @@ components:
       - user_id
       - role
       title: WorkspaceMembershipSchema
+    WorkspaceSchema:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        slug:
+          type: string
+          title: Slug
+        role:
+          type: integer
+          title: Role
+      type: object
+      required:
+      - id
+      - name
+      - slug
+      - role
+      title: WorkspaceSchema
     ValidationErrorItem:
       type: object
       properties:
