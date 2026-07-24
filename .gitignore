@@ -13,3 +13,7 @@ build/
 dist/
 .turbo/
 .react-router/
+.claude/
+.cursor/
+.vscode/
+.idea/
