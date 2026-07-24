@@ -28,7 +28,7 @@ echo "Running a system prune..."
 docker system prune -f --volumes
 
 echo "Stopping temporal server..."
-docker compose -f ./docker/docker-compose.yaml down temporal-server
+docker compose -f ./docker/docker-compose.yaml down dky-temporal-server
 docker stack rm dockyard
 
 echo "Flushing temporalio database..."
@@ -38,7 +38,7 @@ echo "Restarting temporal-admin-tools to configure temporal server..."
 docker stack deploy --with-registry-auth --compose-file ./docker/docker-stack.yaml dockyard
 
 echo "Restarting temporalio server..."
-docker compose -f ./docker/docker-compose.yaml up -d temporal-server
+docker compose -f ./docker/docker-compose.yaml up -d dky-temporal-server
 
 echo "Resetting caddy config..."
 curl "http://127.0.0.1:2019/load" \
@@ -51,7 +51,5 @@ docker exec -it $(docker ps -qf "name=dky-db") psql -U postgres -c "CREATE datab
 source ./backend/.venv/bin/activate && cd backend && alembic upgrade head && cd ..
 
 
-echo "Recreating the superuser..."
-source ./backend/.venv/bin/activate && cd backend && SILENT=true DOCKYARD_SUPERUSER_USERNAME=admin DOCKYARD_SUPERUSER_EMAIL=admin@example.com DOCKYARD_SUPERUSER_PASSWORD=password python -m app.cli create_superuser && cd ..
-echo -e "Created a superuser with the credentials \x1b[90musername\x1b[0m=\x1b[94madmin\x1b[0m \x1b[90mpassword\x1b[0m=\x1b[94mpassword\x1b[0m..."
+echo -e "Create the first user from the onboarding screen at \x1b[96mhttp://localhost:5173/onboarding\x1b[0m"
 echo "RESET DONE ✅"
