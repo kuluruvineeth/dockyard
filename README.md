@@ -57,6 +57,12 @@ workspace roles from guest to owner.
 
 ![Temporal workflow history](docs/media/workflows.png)
 
+## The chart of the yard
+
+One host, one boundary: the control plane (API, Temporal, stores) steers; the data plane holds the deployed services; Caddy routes the world in.
+
+![Dockyard architecture — container view](docs/media/architecture.png)
+
 ## The machinery
 
 | | |
